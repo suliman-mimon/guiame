@@ -21,15 +21,15 @@ jobs:
               -H "Authorization: Bearer $VERCEL_TOKEN")
 
             RESULT=$(echo "$RESPONSE" | python3 -c "
-import json, sys, os
-data = json.loads(sys.stdin.read(), strict=False)
-sha = os.environ['GITHUB_SHA']
-for d in data['deployments']:
-    if d.get('meta', {}).get('githubCommitSha') == sha:
-        print(d['readyState'])
-        print(d['uid'])
-        break
-")
+            import json, sys, os
+            data = json.loads(sys.stdin.read(), strict=False)
+            sha = os.environ['GITHUB_SHA']
+            for d in data['deployments']:
+                if d.get('meta', {}).get('githubCommitSha') == sha:
+                    print(d['readyState'])
+                    print(d['uid'])
+                    break
+            ")
             READY_STATE=$(echo "$RESULT" | sed -n '1p')
             UID_VAL=$(echo "$RESULT" | sed -n '2p')
 
