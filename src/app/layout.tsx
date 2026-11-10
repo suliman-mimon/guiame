@@ -4,8 +4,8 @@ import ConvexClientProvider from "@/components/ConvexClientProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GuiaMe",
-  description: "La agenda del aula, clara para cada estudiante.",
+  title: "App",
+  description: "Next.js + Convex starter with auth configured.",
 };
 
 export default function RootLayout({

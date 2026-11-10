@@ -1,13 +1,5 @@
 @import "tailwindcss";
 
-@theme {
-  --color-guiame-teal: #2f6f62;
-  --color-guiame-teal-dark: #24564c;
-  --color-guiame-cream: #faf3e7;
-  --color-guiame-panel-blue: #1d3a8a;
-  --color-guiame-panel-blue-dark: #15296b;
-}
-
 html,
 body {
   padding: 0;
