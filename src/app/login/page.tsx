@@ -7,7 +7,6 @@ import { FormEvent, useState } from "react";
 export default function LoginPage() {
   const { signIn } = useAuthActions();
   const router = useRouter();
-  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,10 +17,10 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await signIn("password", { email, password, flow });
+      await signIn("password", { email, password, flow: "signIn" });
       router.push("/");
     } catch {
-      setError("Something went wrong. Check your email and password.");
+      setError("Usuario o contraseña incorrectos, o la cuenta está desactivada.");
     } finally {
       setIsSubmitting(false);
     }
@@ -30,9 +29,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {flow === "signIn" ? "Sign in" : "Create account"}
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900">Iniciar sesión</h1>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {error && (
@@ -43,7 +40,7 @@ export default function LoginPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Email
+              Usuario
             </label>
             <input
               type="email"
@@ -57,12 +54,12 @@ export default function LoginPage() {
 
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">
-              Password
+              Contraseña
             </label>
             <input
               type="password"
               required
-              autoComplete={flow === "signIn" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none focus:border-gray-900"
@@ -74,19 +71,9 @@ export default function LoginPage() {
             disabled={isSubmitting}
             className="w-full rounded-xl bg-gray-900 py-2.5 font-semibold text-white transition hover:bg-gray-700 disabled:opacity-60"
           >
-            {flow === "signIn" ? "Sign in" : "Sign up"}
+            Entrar
           </button>
         </form>
-
-        <button
-          type="button"
-          onClick={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}
-          className="mt-4 text-sm text-gray-500 underline"
-        >
-          {flow === "signIn"
-            ? "Don't have an account? Sign up"
-            : "Already have an account? Sign in"}
-        </button>
       </div>
     </main>
   );
