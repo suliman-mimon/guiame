@@ -8,10 +8,13 @@ import type { EstudianteResumen } from "./datosDePrueba";
 
 export default function TarjetaEstudiante({
   estudiante,
+  mostrarClase = false,
 }: {
   estudiante: EstudianteResumen;
+  /** Se enseña la clase debajo del nombre cuando hay alumnos de varias clases. */
+  mostrarClase?: boolean;
 }) {
-  const { id, nombre, inicialApellido, actividadActual, hechas, total, retraso } =
+  const { id, nombre, inicialApellido, clase, actividadActual, hechas, total, retraso } =
     estudiante;
   const nombreCorto = `${nombre} ${inicialApellido}.`;
   const iniciales = `${nombre[0]}${inicialApellido}`.toUpperCase();
@@ -31,9 +34,12 @@ export default function TarjetaEstudiante({
         >
           {iniciales}
         </span>
-        <h2 id={`estudiante-${id}`} className="text-lg font-semibold text-texto">
-          {nombreCorto}
-        </h2>
+        <div className="flex flex-col">
+          <h2 id={`estudiante-${id}`} className="text-lg font-semibold text-texto">
+            {nombreCorto}
+          </h2>
+          {mostrarClase && <p className="text-sm text-texto-suave">{clase}</p>}
+        </div>
       </header>
 
       <div className="flex flex-col gap-1">

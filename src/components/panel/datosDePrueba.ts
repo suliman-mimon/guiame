@@ -91,4 +91,26 @@ export const estudiantesDePrueba: EstudianteResumen[] = [
     total: 5,
     retraso: null,
   },
+  // Dos alumnos de otra clase para probar el filtro por clase (GM-26): un
+  // profesional como la fisio o el logopeda atiende a alumnos de varias clases.
+  {
+    id: "nora",
+    nombre: "Nora",
+    inicialApellido: "S",
+    clase: "Aula 5",
+    actividadActual: { titulo: "Logopedia", momento: "siguiente" },
+    hechas: 2,
+    total: 4,
+    retraso: null,
+  },
+  {
+    id: "iker",
+    nombre: "Iker",
+    inicialApellido: "B",
+    clase: "Aula 5",
+    actividadActual: { titulo: "Educación física", momento: "ahora" },
+    hechas: 1,
+    total: 5,
+    retraso: { actividad: "Educación física", minutos: 10 },
+  },
 ];
