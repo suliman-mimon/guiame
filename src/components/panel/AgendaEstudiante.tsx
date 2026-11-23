@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { EstudianteResumen } from "./datosDePrueba";
 import type { ActividadDeAgenda, EstadoEmocional, MedioDePaso } from "./agendaDePrueba";
-import { urlPictograma } from "./pictogramasDePrueba";
+import { urlDeImagen } from "./pictogramasDePrueba";
 import {
   INICIO_TARDE,
   aMinutos,
@@ -43,7 +43,9 @@ function Estado({ actividad }: { actividad: ActividadDeAgenda }) {
   if (actividad.estado === "en_curso") {
     return (
       <span className="rounded-full bg-aviso-suave px-3 py-1 text-sm font-bold text-texto">
-        En curso · paso {actividad.pasoActual ?? 1} de {actividad.numPasos}
+        {actividad.pasoActual
+          ? `En curso · paso ${actividad.pasoActual} de ${actividad.numPasos}`
+          : "En curso"}
       </span>
     );
   }
@@ -187,7 +189,10 @@ export default function AgendaEstudiante({
                 <span className="text-sm font-normal text-texto-suave">{horaCorta(a.fin)}</span>
               </p>
               <Image
-                src={urlPictograma(a.arasaacId)}
+                src={urlDeImagen(a.imagen)}
+                // Solo optimizamos las de ARASAAC (next.config.ts); las demás vienen
+                // del almacenamiento de Convex.
+                unoptimized={!a.imagen.arasaacId}
                 alt=""
                 width={48}
                 height={48}

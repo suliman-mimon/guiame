@@ -1,18 +1,31 @@
 // Catálogo de pictogramas de prueba (ARASAAC), el mismo que usaba el seed antiguo.
 // RF2.4: solo se eligen pictogramas del catálogo del sistema. Cuando el seed de
 // GM-05/GM-14 cargue la tabla `imagenes`, este catálogo se sustituye por una
-// consulta con la misma forma (`Pictograma`).
+// consulta que devuelva esos documentos tal cual (`Imagen`).
 
-export type Pictograma = {
-  arasaacId: string;
-  /** Texto alternativo y nombre que se ve en el buscador. */
-  texto: string;
+/**
+ * Lo que las pantallas usan de un documento de la tabla `imagenes` (RI2.4,
+ * esquema v2). Las actividades y los pasos guardan `imagenId`, así que el
+ * asistente tiene que quedarse con `_id` para mandárselo a la mutación de GM-07.
+ */
+export type Imagen = {
+  /** `Id<"imagenes">` en el servidor. */
+  _id: string;
+  /** Nombre que se ve en el buscador y texto alternativo. */
+  textoAlternativo: string;
+  ubicacionArchivo: string;
+  arasaacId?: string;
 };
 
 // La API oficial de ARASAAC sirve el PNG (500 px). static.arasaac.org no siempre
-// responde, así que usamos la API.
-export function urlPictograma(arasaacId: string) {
+// responde (da 504 a next/image), así que si la imagen es de ARASAAC usamos la
+// API aunque `ubicacionArchivo` apunte a otro sitio.
+function urlArasaac(arasaacId: string) {
   return `https://api.arasaac.org/v1/pictograms/${arasaacId}?download=false`;
+}
+
+export function urlDeImagen(imagen: Imagen) {
+  return imagen.arasaacId ? urlArasaac(imagen.arasaacId) : imagen.ubicacionArchivo;
 }
 
 const lista: [string, string][] = [
@@ -71,11 +84,21 @@ const lista: [string, string][] = [
   ["silencio", "5936"],
 ];
 
-export const pictogramasDePrueba: Pictograma[] = lista.map(([texto, arasaacId]) => ({
-  texto,
+export const pictogramasDePrueba: Imagen[] = lista.map(([texto, arasaacId]) => ({
+  _id: `imagen_${arasaacId}`,
+  textoAlternativo: texto,
+  ubicacionArchivo: urlArasaac(arasaacId),
   arasaacId,
 }));
 
-export function buscarPictograma(texto: string): Pictograma | undefined {
-  return pictogramasDePrueba.find((p) => p.texto === texto);
+/** Pictograma de prueba por su número de ARASAAC (para montar los datos de prueba). */
+export function pictogramaDePrueba(arasaacId: string): Imagen {
+  return (
+    pictogramasDePrueba.find((p) => p.arasaacId === arasaacId) ?? {
+      _id: `imagen_${arasaacId}`,
+      textoAlternativo: "",
+      ubicacionArchivo: urlArasaac(arasaacId),
+      arasaacId,
+    }
+  );
 }
