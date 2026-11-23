@@ -3,6 +3,15 @@
 // La consulta real (GM-15, Ignacio) debe devolver objetos con esta misma forma,
 // `EstudianteResumen`, para que la pantalla se conecte sin cambiar nada más:
 // se sustituye `estudiantesDePrueba` por `useQuery(api.panel.misEstudiantes, ...)`.
+//
+// De dónde sale cada campo en el esquema v2 (los alumnos que el tutor ve son los
+// de sus `supervisiones` → `matriculas` del curso, más sus `vinculosDirectos`):
+//   estudiantes._id → id · users.name → nombre · users.apellidos → inicialApellido
+//   clases.nombre (matrícula del curso actual) → clase
+//   realizaciones de hoy sin cancelar → hechas (con hFinReal) y total
+//   la primera sin hFinReal → actividadActual («ahora» si ya ha empezado su franja)
+//   la primera con fInicioProgramada pasada y sin hInicioReal → retraso
+//     (minutos = ahora − fInicioProgramada)
 
 export type ActividadActual = {
   titulo: string;
