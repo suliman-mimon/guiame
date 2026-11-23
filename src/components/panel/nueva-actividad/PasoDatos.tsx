@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarPictogramaPorId } from "./catalogo";
+import { buscarImagen } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import { TIPOS, type BorradorActividad, type Errores } from "./borrador";
 import { INICIO_TARDE, aMinutos } from "../fechas";
@@ -29,7 +29,7 @@ export default function PasoDatos({
   hoy: string;
   abrirSelector: () => void;
 }) {
-  const pictograma = borrador.arasaacId ? buscarPictogramaPorId(borrador.arasaacId) : undefined;
+  const pictograma = borrador.imagenId ? buscarImagen(borrador.imagenId) : undefined;
   const parteDelDia =
     borrador.inicio && aMinutos(borrador.inicio) >= INICIO_TARDE ? "de la tarde" : "de la mañana";
 
@@ -59,8 +59,8 @@ export default function PasoDatos({
         <div className="flex items-center gap-4">
           {pictograma ? (
             <>
-              <MiniaturaPictograma arasaacId={pictograma.arasaacId} />
-              <span className="capitalize">{pictograma.texto}</span>
+              <MiniaturaPictograma imagen={pictograma} />
+              <span className="capitalize">{pictograma.textoAlternativo}</span>
             </>
           ) : (
             <span className="text-texto-suave">Sin elegir</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarPictogramaPorId } from "./catalogo";
+import { buscarImagen } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import {
   TIPOS,
@@ -37,7 +37,7 @@ export default function PasoParaQuien({
   const elegidos = new Set(borrador.estudiantes);
   const conChoque = new Set(solapamientos.map((s) => s.estudianteId)).size;
   const todos = estudiantes.length > 0 && estudiantes.every((e) => elegidos.has(e.id));
-  const pictograma = borrador.arasaacId ? buscarPictogramaPorId(borrador.arasaacId) : undefined;
+  const pictograma = borrador.imagenId ? buscarImagen(borrador.imagenId) : undefined;
   const tipo = TIPOS.find((t) => t.valor === borrador.tipo)?.texto;
 
   function alternar(id: string) {
@@ -109,7 +109,7 @@ export default function PasoParaQuien({
       >
         <h2 className="text-lg font-bold">Resumen</h2>
         <div className="flex items-center gap-3">
-          {pictograma && <MiniaturaPictograma arasaacId={pictograma.arasaacId} tamano={48} />}
+          {pictograma && <MiniaturaPictograma imagen={pictograma} tamano={48} />}
           <div>
             <p className="font-bold">{borrador.titulo || "Sin título"}</p>
             <p className="text-sm text-texto-suave">
@@ -125,7 +125,7 @@ export default function PasoParaQuien({
           </p>
           <ol className="flex flex-col gap-2">
             {borrador.pasos.map((p, i) => {
-              const picto = p.arasaacId ? buscarPictogramaPorId(p.arasaacId) : undefined;
+              const picto = p.imagenId ? buscarImagen(p.imagenId) : undefined;
               return (
                 <li key={p.id} className="flex items-center gap-3">
                   <span
@@ -135,7 +135,7 @@ export default function PasoParaQuien({
                     {i + 1}
                   </span>
                   {p.medio === "pictograma" && picto ? (
-                    <MiniaturaPictograma arasaacId={picto.arasaacId} tamano={32} />
+                    <MiniaturaPictograma imagen={picto} tamano={32} />
                   ) : null}
                   <span className="min-w-0">
                     <span className="block">{p.texto || "Sin texto"}</span>

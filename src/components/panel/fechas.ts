@@ -56,5 +56,35 @@ export function horaCorta(hora: string): string {
   return hora.replace(/^0/, "");
 }
 
+/**
+ * Día "YYYY-MM-DD" y hora "HH:MM" de Madrid a milisegundos desde 1970, que es
+ * como guarda el esquema v2 `fInicioProgramada` y `fFinProgramada`. Tiene en
+ * cuenta el horario de verano (UTC+2) y el de invierno (UTC+1).
+ */
+export function epochEnMadrid(fecha: string, hora: string): number {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  const [h, m] = hora.split(":").map(Number);
+  const comoSiFueraUtc = Date.UTC(anio, mes - 1, dia, h, m);
+  const partes = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(comoSiFueraUtc));
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) =>
+    Number(partes.find((p) => p.type === tipo)?.value);
+  const enMadrid = Date.UTC(
+    valor("year"),
+    valor("month") - 1,
+    valor("day"),
+    valor("hour"),
+    valor("minute"),
+  );
+  return comoSiFueraUtc - (enMadrid - comoSiFueraUtc);
+}
+
 /** Las actividades de tarde empiezan a partir de las 14:00 (como en la app del alumno). */
 export const INICIO_TARDE = 14 * 60;

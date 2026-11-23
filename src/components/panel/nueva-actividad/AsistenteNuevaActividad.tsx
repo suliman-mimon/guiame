@@ -7,24 +7,34 @@ import PasoPasos from "./PasoPasos";
 import PasoParaQuien from "./PasoParaQuien";
 import SelectorPictograma from "./SelectorPictograma";
 import {
+  argumentosParaGuardar,
   buscarSolapamientos,
   validarDatos,
   validarPasos,
+  type ArgumentosGuardar,
   type BorradorActividad,
   type Errores,
 } from "./borrador";
 import { agendaDePrueba, type ActividadDeAgenda } from "../agendaDePrueba";
 import type { EstudianteResumen } from "../datosDePrueba";
-import { hoyEnMadrid } from "../fechas";
+import { hoyEnMadrid, minutosAhoraEnMadrid } from "../fechas";
 
 // W4 · Asistente «Nueva actividad» en tres pasos: Datos (GM-23), Pasos (GM-25)
 // y Para quién con resumen (GM-24, GM-47).
 //
 // De momento guarda en local para poder probar el flujo. Al conectar GM-07
-// (Suliman): `guardar` llama a la mutación con el borrador y el servidor vuelve a
-// comprobar los solapamientos (RF2.6); `agendaDe` pasa a ser una consulta.
+// (Suliman), `guardarDePrueba` se sustituye por
+// `const crear = useMutation(api.actividades.crear)` y se le pasa lo que devuelve
+// `argumentosParaGuardar`; el servidor vuelve a comprobar los solapamientos
+// (RF2.6). `agendaDe` pasa a ser una consulta.
 
 const PASOS = ["Datos", "Pasos", "Para quién"] as const;
+
+// TODO GM-24: sustituir por la mutación de GM-07.
+async function guardarDePrueba(argumentos: ArgumentosGuardar): Promise<void> {
+  void argumentos;
+  await new Promise((r) => setTimeout(r, 400));
+}
 
 function agendaDe(estudianteId: string, fecha: string): ActividadDeAgenda[] {
   // Datos de prueba: solo Lucía tiene agenda, y solo hoy.
@@ -62,7 +72,7 @@ export default function AsistenteNuevaActividad({
     setBorrador((b) => ({ ...b, ...parcial }));
   }
 
-  const erroresDatos = validarDatos(borrador, hoy);
+  const erroresDatos = validarDatos(borrador, hoy, minutosAhoraEnMadrid());
   const erroresPasos = validarPasos(borrador);
   const solapamientos = buscarSolapamientos(borrador, (id, fecha) =>
     agendaDe(id, fecha).filter((a) => a.id !== editandoId),
@@ -86,18 +96,17 @@ export default function AsistenteNuevaActividad({
     }
     if (solapamientos.length > 0) return;
     setGuardando(true);
-    // TODO GM-24: sustituir por la mutación de GM-07 (api.actividades.crear / modificar).
-    await new Promise((r) => setTimeout(r, 400));
+    await guardarDePrueba(argumentosParaGuardar(borrador));
     setGuardando(false);
     setGuardado(true);
   }
 
-  function elegirPictograma(arasaacId: string) {
+  function elegirPictograma(imagenId: string) {
     if (!selector) return;
-    if (selector.destino === "principal") cambiar({ arasaacId });
+    if (selector.destino === "principal") cambiar({ imagenId });
     else {
       cambiar({
-        pasos: borrador.pasos.map((p) => (p.id === selector.destino ? { ...p, arasaacId } : p)),
+        pasos: borrador.pasos.map((p) => (p.id === selector.destino ? { ...p, imagenId } : p)),
       });
     }
     setSelector(null);

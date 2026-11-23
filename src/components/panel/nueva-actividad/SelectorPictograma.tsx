@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
-import { pictogramasDePrueba, urlPictograma } from "../pictogramasDePrueba";
+import { urlDeImagen, type Imagen } from "../pictogramasDePrueba";
+import { catalogo } from "./catalogo";
 
 // Elegir un pictograma del catálogo del sistema (RF2.4: nada de subir imágenes
 // propias). Diálogo nativo: se cierra con Esc y mantiene el foco dentro.
@@ -13,15 +14,16 @@ function normalizar(texto: string) {
 }
 
 export function MiniaturaPictograma({
-  arasaacId,
+  imagen,
   tamano = 56,
 }: {
-  arasaacId: string;
+  imagen: Imagen;
   tamano?: number;
 }) {
   return (
     <Image
-      src={urlPictograma(arasaacId)}
+      src={urlDeImagen(imagen)}
+      unoptimized={!imagen.arasaacId}
       alt=""
       width={tamano}
       height={tamano}
@@ -39,7 +41,7 @@ export default function SelectorPictograma({
 }: {
   abierto: boolean;
   titulo: string;
-  onElegir: (arasaacId: string, texto: string) => void;
+  onElegir: (imagenId: string) => void;
   onCerrar: () => void;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
@@ -59,8 +61,8 @@ export default function SelectorPictograma({
 
   const termino = normalizar(busqueda.trim());
   const resultados = termino
-    ? pictogramasDePrueba.filter((p) => normalizar(p.texto).includes(termino))
-    : pictogramasDePrueba;
+    ? catalogo.filter((p) => normalizar(p.textoAlternativo).includes(termino))
+    : catalogo;
 
   // Cada vez que se abre, el buscador empieza vacío.
   function cerrar() {
@@ -68,9 +70,9 @@ export default function SelectorPictograma({
     onCerrar();
   }
 
-  function elegir(arasaacId: string, texto: string) {
+  function elegir(imagenId: string) {
     setBusqueda("");
-    onElegir(arasaacId, texto);
+    onElegir(imagenId);
   }
 
   return (
@@ -111,14 +113,14 @@ export default function SelectorPictograma({
         </p>
         <ul className="grid grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-4 md:grid-cols-5">
           {resultados.map((p) => (
-            <li key={p.arasaacId}>
+            <li key={p._id}>
               <button
                 type="button"
-                onClick={() => elegir(p.arasaacId, p.texto)}
+                onClick={() => elegir(p._id)}
                 className="flex w-full flex-col items-center gap-2 rounded-boton border border-panel-borde p-2 hover:border-panel-primario hover:bg-panel-primario-suave"
               >
-                <MiniaturaPictograma arasaacId={p.arasaacId} tamano={64} />
-                <span className="text-center text-sm">{p.texto}</span>
+                <MiniaturaPictograma imagen={p} tamano={64} />
+                <span className="text-center text-sm">{p.textoAlternativo}</span>
               </button>
             </li>
           ))}

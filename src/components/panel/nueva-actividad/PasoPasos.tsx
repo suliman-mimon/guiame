@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarPictogramaPorId } from "./catalogo";
+import { buscarImagen } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import { nuevoPaso, type BorradorActividad, type Errores, type PasoBorrador } from "./borrador";
 import type { MedioDePaso } from "../agendaDePrueba";
@@ -63,7 +63,7 @@ export default function PasoPasos({
       <ol className="flex flex-col gap-4">
         {pasos.map((paso, i) => {
           const numero = i + 1;
-          const pictograma = paso.arasaacId ? buscarPictogramaPorId(paso.arasaacId) : undefined;
+          const pictograma = paso.imagenId ? buscarImagen(paso.imagenId) : undefined;
           const errorTexto = errores[`${paso.id}.texto`];
           const errorMedio = errores[`${paso.id}.medio`];
           return (
@@ -118,8 +118,8 @@ export default function PasoPasos({
                     <>
                       {pictograma ? (
                         <>
-                          <MiniaturaPictograma arasaacId={pictograma.arasaacId} tamano={48} />
-                          <span className="flex-1 capitalize">{pictograma.texto} (catálogo ARASAAC)</span>
+                          <MiniaturaPictograma imagen={pictograma} tamano={48} />
+                          <span className="flex-1 capitalize">{pictograma.textoAlternativo}</span>
                         </>
                       ) : (
                         <span className="flex-1 text-texto-suave">Sin pictograma</span>
