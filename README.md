@@ -109,5 +109,5 @@ personal.
 
 El Manual de Coordinación (apartado de Control de versiones) fija como
 política integrar los cambios mediante Pull Request revisado en vez de
-push directo a `main`; todavía no hay una regla de protección de rama
-configurada en GitHub que lo exija.
+push directo a `main`; `main` ya tiene una regla de protección de rama en
+GitHub que lo exige (1 aprobación obligatoria).
