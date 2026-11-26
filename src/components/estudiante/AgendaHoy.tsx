@@ -236,7 +236,7 @@ export default function AgendaHoy({
     setActionError(null);
     try {
       await startMutation({ realizacionId: id });
-      router.push(`/estudiante/actividad/${id}/paso/1`);
+      router.push(`/hoy/actividad/${id}/paso/1`);
     } catch (error) {
       setActionError(getErrorMessage(error));
     } finally {
@@ -404,7 +404,7 @@ export default function AgendaHoy({
                   className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
                   onClick={() =>
                     router.push(
-                      `/estudiante/actividad/${activity.id}/paso/1`,
+                      `/hoy/actividad/${activity.id}/paso/1`,
                     )
                   }
                   type="button"

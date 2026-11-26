@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 
 const navigation = [
   { href: "/hoy", label: "Hoy", icon: "sun" },
-  { href: "/estudiante/semana", label: "Mi semana", icon: "calendar" },
+  { label: "Mi semana", icon: "calendar" },
   {
-    href: "/estudiante/animo",
     label: "Mi estado de ánimo",
     icon: "smile",
   },
-  { href: "/estudiante/colores", label: "Mis colores", icon: "palette" },
+  { label: "Mis colores", icon: "palette" },
 ] as const;
 
 type IconName = (typeof navigation)[number]["icon"] | "calendarCheck";
@@ -82,14 +81,30 @@ export default function StudentSidebar() {
 
       <nav aria-label="Navegación del estudiante">
         <ul className="flex flex-col gap-2">
-          {navigation.map(({ href, label, icon }) => {
-            const active =
-              pathname === href ||
-              (href === "/hoy" &&
-                pathname.startsWith("/estudiante/actividad/"));
+          {navigation.map((item) => {
+            if (!("href" in item)) {
+              return (
+                <li key={item.label}>
+                  <button
+                    className="flex min-h-[92px] w-full cursor-not-allowed flex-col items-center justify-center gap-2 rounded-2xl border-l-4 border-transparent px-2 py-3 text-center text-base font-bold leading-tight text-alumno-texto-apagado opacity-60"
+                    disabled
+                    type="button"
+                  >
+                    <span className="[&>svg]:h-8 [&>svg]:w-8">
+                      <Icon name={item.icon} />
+                    </span>
+                    <span>{item.label}</span>
+                  </button>
+                </li>
+              );
+            }
 
+            const active =
+              pathname === item.href ||
+              (item.href === "/hoy" &&
+                pathname.startsWith("/hoy/actividad/"));
             return (
-              <li key={href}>
+              <li key={item.href}>
                 <Link
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border-l-4 px-2 py-3 text-center text-base font-bold leading-tight transition-colors ${
@@ -97,12 +112,12 @@ export default function StudentSidebar() {
                       ? "border-alumno-acento bg-alumno-primario text-white"
                       : "border-transparent text-alumno-texto-secundario hover:bg-alumno-superficie-hecha"
                   }`}
-                  href={href}
+                  href={item.href}
                 >
                   <span className="[&>svg]:h-8 [&>svg]:w-8">
-                    <Icon name={icon} />
+                    <Icon name={item.icon} />
                   </span>
-                  <span>{label}</span>
+                  <span>{item.label}</span>
                 </Link>
               </li>
             );

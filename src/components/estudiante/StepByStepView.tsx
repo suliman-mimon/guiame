@@ -3,11 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
-import StudentSidebar from "@/components/estudiante/StudentSidebar";
 
 type Format = "pictograma" | "video" | "audio" | "literal";
 
@@ -221,9 +220,11 @@ export default function StepByStepView({
     api.realizaciones.obtenerDetalle,
     isAuthenticated ? { realizacionId: realizationId } : "skip",
   );
-  const selectedStep = detail?.pasos.find(
-    (paso) => paso.orden === stepNumber - 1,
+  const orderedSteps = useMemo(
+    () => [...(detail?.pasos ?? [])].sort((a, b) => a.orden - b.orden),
+    [detail?.pasos],
   );
+  const selectedStep = orderedSteps[stepNumber - 1];
   const mediaFileId =
     selectedStep?.tipoMedio === "video" || selectedStep?.tipoMedio === "audio"
       ? selectedStep.archivoId
@@ -251,14 +252,14 @@ export default function StepByStepView({
           selectedStep.tipoMedio === "audio" ? (mediaUrl ?? null) : null,
       }
     : null;
-  const totalSteps = detail?.pasos.length ?? 0;
+  const totalSteps = orderedSteps.length;
   const activityTitle = detail?.titulo ?? "";
   const schedule = detail
     ? `De ${formatTime(detail.fInicioProgramada)} a ${formatTime(detail.fFinProgramada)}`
     : "";
   const activityHref = realizationId;
   const stepHref = (number: number) =>
-    `/estudiante/actividad/${activityHref}/paso/${number}`;
+    `/hoy/actividad/${activityHref}/paso/${number}`;
   const previousStepHref = stepHref(stepNumber - 1);
   const nextStepHref = stepHref(stepNumber + 1);
   const isLoading =
@@ -335,10 +336,7 @@ export default function StepByStepView({
   }
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
-      <StudentSidebar />
-
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-alumno-fondo px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
           <Link
             className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl border-2 border-alumno-borde bg-alumno-superficie px-3 text-sm font-bold text-alumno-texto hover:border-alumno-primario focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:px-5 sm:text-base"
@@ -492,6 +490,5 @@ export default function StepByStepView({
           )}
         </footer>
       </main>
-    </div>
   );
 }

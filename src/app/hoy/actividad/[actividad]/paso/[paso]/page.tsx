@@ -8,9 +8,9 @@ type StepPageProps = {
 
 export default async function StepPage({ params }: StepPageProps) {
   const { actividad: realizationId, paso } = await params;
-  const step = Number(paso);
+  const pasoNumero = Number(paso);
 
-  if (!Number.isInteger(step) || step < 1) {
+  if (!Number.isInteger(pasoNumero) || pasoNumero < 1) {
     notFound();
   }
 
@@ -18,9 +18,9 @@ export default async function StepPage({ params }: StepPageProps) {
 
   return (
     <StepByStepView
-      key={`${realizationId}-${step}`}
+      key={`${realizationId}-${pasoNumero}`}
       realizationId={realizationIdTyped}
-      stepNumber={step}
+      stepNumber={pasoNumero}
     />
   );
 }
