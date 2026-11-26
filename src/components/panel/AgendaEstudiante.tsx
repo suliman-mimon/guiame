@@ -115,6 +115,12 @@ export default function AgendaEstudiante({
         </div>
         <div className="flex flex-wrap gap-3">
           <Link
+            href={`/panel/estudiantes/${estudiante.id}/ajustes`}
+            className="flex min-h-11 items-center rounded-boton border-2 border-panel-primario px-4 font-bold text-panel-primario transition-colors hover:bg-panel-primario-suave"
+          >
+            Ajustes de {estudiante.nombre}
+          </Link>
+          <Link
             href={`/panel/actividades/nueva?estudiante=${estudiante.id}&fecha=${fecha}`}
             className="flex min-h-11 items-center gap-2 rounded-boton bg-panel-primario px-4 font-bold text-white transition-colors hover:bg-panel-primario-hover"
           >
