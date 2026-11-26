@@ -2,6 +2,7 @@ import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { api } from "convex/_generated/api";
+import TemaProvider from "@/components/TemaProvider";
 import StudentSidebar from "@/components/estudiante/StudentSidebar";
 
 export default async function HoyLayout({
@@ -20,11 +21,13 @@ export default async function HoyLayout({
   }
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
-      <StudentSidebar />
-      <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
-        {children}
+    <TemaProvider>
+      <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
+        <StudentSidebar />
+        <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+          {children}
+        </div>
       </div>
-    </div>
+    </TemaProvider>
   );
 }
