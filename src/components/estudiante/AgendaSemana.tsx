@@ -6,6 +6,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
+import { usePictogramas } from "@/components/estudiante/pictogramas";
 
 type WeekActivity = {
   id: Id<"realizaciones">;
@@ -14,6 +15,7 @@ type WeekActivity = {
   startTimeLabel: string;
   title: string;
   status: "pending" | "in_progress" | "completed";
+  imagenId: Id<"imagenes">;
 };
 
 const fechaHoraMadrid = new Intl.DateTimeFormat("en-GB", {
@@ -212,6 +214,7 @@ export default function AgendaSemana({
       ? { inicio, fin }
       : "skip",
   );
+  const pictogramas = usePictogramas((agenda ?? []).map((a) => a.imagenId));
 
   useEffect(() => {
     if (config !== undefined && config !== null && !config.permiteVerSemana) {
@@ -235,6 +238,7 @@ export default function AgendaSemana({
         startTimeSort: time.sort,
         startTimeLabel: time.label,
         title: item.titulo,
+        imagenId: item.imagenId,
         status:
           item.hFinReal !== undefined
             ? "completed"
@@ -282,7 +286,7 @@ export default function AgendaSemana({
           La vista semanal no está activada en tu configuración.
         </p>
         <Link
-          className="rounded-xl bg-alumno-primario px-6 py-3 font-bold text-white transition hover:bg-alumno-primario-hover"
+          className="rounded-xl bg-alumno-primario px-6 py-3 font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover"
           href="/hoy"
         >
           Volver a Hoy
@@ -420,7 +424,17 @@ export default function AgendaSemana({
                                   : "bg-alumno-superficie-hecha text-alumno-texto"
                               }`}
                             >
-                              <ActivityIcon completed={isDone} />
+                              {pictogramas.get(activity.imagenId) ? (
+                                <img
+                                  alt=""
+                                  className="h-7 w-7 rounded-lg bg-white object-contain p-0.5"
+                                  height={28}
+                                  src={pictogramas.get(activity.imagenId)!.url}
+                                  width={28}
+                                />
+                              ) : (
+                                <ActivityIcon completed={isDone} />
+                              )}
                             </span>
                             <span className="truncate text-sm font-extrabold text-alumno-texto">
                               {activity.startTimeLabel}

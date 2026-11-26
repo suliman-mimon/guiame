@@ -3,6 +3,7 @@ import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
 import { api } from "convex/_generated/api";
 import StudentSidebar from "@/components/estudiante/StudentSidebar";
+import TemaProvider from "@/components/TemaProvider";
 
 export default async function HoyLayout({
   children,
@@ -19,12 +20,16 @@ export default async function HoyLayout({
     }
   }
 
+  // TemaProvider (GM-35): paleta, tamaño de letra y formatos que el tutor
+  // elige en Ajustes (HU-07); cambian en la tablet sin recargar.
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
-      <StudentSidebar />
-      <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
-        {children}
+    <TemaProvider>
+      <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
+        <StudentSidebar />
+        <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+          {children}
+        </div>
       </div>
-    </div>
+    </TemaProvider>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { usePictogramas } from "@/components/estudiante/pictogramas";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 
@@ -98,16 +99,16 @@ function VideoPlaceholder({ src }: { src: string | null }) {
   }
 
   return (
-    <div className="flex aspect-video w-full max-w-[520px] flex-col items-center justify-center rounded-2xl bg-alumno-primario-hover px-6 text-center text-white">
+    <div className="flex aspect-video w-full max-w-[520px] flex-col items-center justify-center rounded-2xl bg-alumno-primario-hover px-6 text-center text-alumno-sobre-primario">
       <Image
         alt="Pictograma de vídeo"
-        className="mb-4 h-16 w-16 rounded-full bg-white object-contain p-2"
+        className="mb-4 h-16 w-16 rounded-full bg-alumno-superficie object-contain p-2"
         height={64}
-        src="https://static.arasaac.org/pictograms/38207/38207_500.png"
+        src="https://api.arasaac.org/v1/pictograms/38207?download=false"
         width={64}
       />
       <p className="text-lg font-bold">Vídeo no disponible</p>
-      <p className="mt-2 text-sm text-white/75">
+      <p className="mt-2 text-sm text-alumno-sobre-primario/75">
         Aún no se ha añadido un vídeo para este paso.
       </p>
     </div>
@@ -165,7 +166,7 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
         <div className="flex items-center gap-4 rounded-2xl border-2 border-alumno-borde bg-alumno-superficie p-4">
         <button
           aria-label={isSpeaking ? "Detener audio" : "Escuchar instrucción"}
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-alumno-primario px-2 text-center text-sm font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-alumno-primario px-2 text-center text-sm font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
           onClick={toggleSpeech}
           type="button"
         >
@@ -199,7 +200,7 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
             : "Pulsa el altavoz para escuchar."}
       </p>
       {!src && audioError && (
-        <p className="mt-2 text-center text-sm font-semibold text-[#9b2c2c]" role="alert">
+        <p className="mt-2 text-center text-sm font-semibold text-alerta" role="alert">
           {audioError}
         </p>
       )}
@@ -235,6 +236,7 @@ export default function StepByStepView({
       ? { archivoId: mediaFileId }
       : "skip",
   );
+  const pictogramas = usePictogramas([selectedStep?.imagenId, detail?.imagenId]);
   const finishMutation = useMutation(api.realizaciones.terminar);
   const [format, setFormat] = useState<Format>("pictograma");
   const [isSaving, setIsSaving] = useState(false);
@@ -244,7 +246,11 @@ export default function StepByStepView({
     ? {
         title: selectedStep.texto,
         description: detail.descripcion ?? "",
-        pictogram: null,
+        // El pictograma del paso; si no tiene, el de la actividad.
+        pictogram:
+          pictogramas.get(selectedStep.imagenId ?? "") ??
+          pictogramas.get(detail.imagenId) ??
+          null,
         initialFormat: selectedStep.tipoMedio,
         videoUrl:
           selectedStep.tipoMedio === "video" ? (mediaUrl ?? null) : null,
@@ -326,7 +332,7 @@ export default function StepByStepView({
           {unavailableMessage}
         </p>
         <Link
-          className="rounded-xl bg-alumno-primario px-6 py-3 font-bold text-white"
+          className="rounded-xl bg-alumno-primario px-6 py-3 font-bold text-alumno-sobre-primario"
           href="/hoy"
         >
           Volver a hoy
@@ -357,7 +363,7 @@ export default function StepByStepView({
             </p>
           </div>
 
-          <span className="justify-self-end rounded-xl bg-alumno-acento/20 px-3 py-3 text-sm font-extrabold text-[#785500] sm:px-5 sm:text-base">
+          <span className="justify-self-end rounded-xl bg-alumno-acento/20 px-3 py-3 text-sm font-extrabold text-alumno-texto sm:px-5 sm:text-base">
             Paso {stepNumber} de {totalSteps}
           </span>
         </header>
@@ -467,7 +473,7 @@ export default function StepByStepView({
               className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:min-h-14 sm:px-8 sm:text-base ${
                 stepNumber === totalSteps
                   ? "bg-alumno-acento text-alumno-texto hover:bg-alumno-acento/90"
-                  : "bg-alumno-primario text-white hover:bg-alumno-primario-hover"
+                  : "bg-alumno-primario text-alumno-sobre-primario hover:bg-alumno-primario-hover"
               }`}
               disabled={isSaving}
               onClick={continueActivity}
@@ -484,7 +490,7 @@ export default function StepByStepView({
             </button>
           </div>
           {actionError && (
-            <p className="text-sm font-semibold text-[#9b2c2c]" role="alert">
+            <p className="text-sm font-semibold text-alerta" role="alert">
               {actionError}
             </p>
           )}

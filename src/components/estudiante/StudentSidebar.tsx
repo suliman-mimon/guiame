@@ -77,7 +77,7 @@ export default function StudentSidebar() {
         className="mb-7 flex min-h-12 items-center justify-center gap-3 px-2"
         href="/hoy"
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alumno-primario text-white">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alumno-primario text-alumno-sobre-primario">
           <Icon name="calendarCheck" />
         </span>
         <span className="text-2xl font-bold tracking-tight text-alumno-primario">
@@ -120,7 +120,7 @@ export default function StudentSidebar() {
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border-l-4 px-2 py-3 text-center text-base font-bold leading-tight transition-colors ${
                     active
-                      ? "border-alumno-acento bg-alumno-primario text-white"
+                      ? "border-alumno-acento bg-alumno-primario text-alumno-sobre-primario"
                       : "border-transparent text-alumno-texto-secundario hover:bg-alumno-superficie-hecha"
                   }`}
                   href={item.href}

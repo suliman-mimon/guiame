@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "convex/_generated/api";
 import type { Id } from "convex/_generated/dataModel";
 import CelebrationOverlay from "@/components/estudiante/CelebrationOverlay";
+import { usePictogramas } from "@/components/estudiante/pictogramas";
+import { useTema } from "@/components/TemaProvider";
 
 type Period = "morning" | "afternoon";
 
@@ -15,6 +17,7 @@ type Activity = {
   title: string;
   completionText: string;
   status: "pending" | "in_progress" | "completed";
+  imagenId: Id<"imagenes">;
 };
 
 type Celebration = {
@@ -95,15 +98,6 @@ function formatDate(fecha: string) {
   return `${formatted.charAt(0).toLocaleUpperCase("es-ES")}${formatted.slice(1)}`;
 }
 
-function areMorningActivitiesComplete(activities: Activity[]) {
-  const morningActivities = activities.filter(
-    (activity) => activity.startTime < "14:00",
-  );
-  return (
-    morningActivities.every((activity) => activity.status === "completed")
-  );
-}
-
 function formatTime(timestamp: number) {
   return new Intl.DateTimeFormat("es-ES", {
     timeZone: "Europe/Madrid",
@@ -137,7 +131,11 @@ export default function AgendaHoy({
     isAuthenticated ? { inicio, fin } : "skip",
   );
   const startMutation = useMutation(api.realizaciones.empezar);
-  const [period, setPeriod] = useState<Period>("morning");
+  // Por la tarde se abre directamente la tarde.
+  const [period, setPeriod] = useState<Period>(() =>
+    formatTime(Date.now()) >= "14:00" ? "afternoon" : "morning",
+  );
+  const tema = useTema();
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -149,6 +147,7 @@ export default function AgendaHoy({
         startTime: formatTime(activity.fInicioProgramada),
         title: activity.titulo,
         completionText: `la actividad «${activity.titulo}»`,
+        imagenId: activity.imagenId,
         status:
           activity.hFinReal !== undefined
             ? "completed"
@@ -163,8 +162,6 @@ export default function AgendaHoy({
     () => [...activities].sort((a, b) => a.startTime.localeCompare(b.startTime)),
     [activities],
   );
-  const morningActivitiesComplete =
-    areMorningActivitiesComplete(orderedActivities);
   const hasActivityInProgress = orderedActivities.some(
     (activity) => activity.status === "in_progress",
   );
@@ -176,6 +173,7 @@ export default function AgendaHoy({
       ? activity.startTime < "14:00"
       : activity.startTime >= "14:00",
   );
+  const pictogramas = usePictogramas(orderedActivities.map((a) => a.imagenId));
 
   useEffect(() => {
     if (
@@ -221,11 +219,7 @@ export default function AgendaHoy({
       (activity) => activity.status === "pending",
     );
 
-    if (
-      currentActivity ||
-      nextActivity?.id !== id ||
-      (nextActivity.startTime >= "14:00" && !morningActivitiesComplete)
-    ) {
+    if (currentActivity || nextActivity?.id !== id) {
       return;
     }
 
@@ -308,18 +302,9 @@ export default function AgendaHoy({
           </svg>
         </button>
       </div>
-      {period === "afternoon" && !morningActivitiesComplete && (
-        <p
-          className="mb-2 shrink-0 rounded-xl bg-alumno-acento px-4 py-2 text-center font-bold text-alumno-texto"
-          id="afternoon-locked-message"
-          role="status"
-        >
-          Completa primero todas las actividades de la mañana.
-        </p>
-      )}
       {actionError && (
         <p
-          className="mb-2 shrink-0 rounded-xl bg-[#fbeee7] px-4 py-2 text-center font-semibold text-[#9b2c2c]"
+          className="mb-2 shrink-0 rounded-xl bg-alerta-suave px-4 py-2 text-center font-semibold text-alerta"
           role="alert"
         >
           {actionError}
@@ -343,8 +328,7 @@ export default function AgendaHoy({
           const isNext =
             activity.status === "pending" && activity.id === nextActivityId;
           const isDone = activity.status === "completed";
-          const isAfternoonLocked =
-            activity.startTime >= "14:00" && !morningActivitiesComplete;
+          const pictograma = pictogramas.get(activity.imagenId);
 
           return (
             <li
@@ -357,20 +341,29 @@ export default function AgendaHoy({
               }`}
               key={activity.id}
             >
-              <span
-                aria-label="Pictograma no disponible"
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-alumno-superficie-hecha text-3xl ${
-                  isDone ? "grayscale" : ""
-                }`}
-                role="img"
-              >
-                —
-              </span>
+              {tema.mostrarPictograma && (
+                pictograma ? (
+                  <img
+                    alt=""
+                    className={`h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 ${
+                      isDone ? "opacity-60 grayscale" : ""
+                    }`}
+                    height={56}
+                    src={pictograma.url}
+                    width={56}
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="h-14 w-14 shrink-0 rounded-xl bg-alumno-superficie-hecha"
+                  />
+                )
+              )}
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate text-lg font-bold sm:text-xl ${
                     isDone ? "text-alumno-texto-apagado" : "text-alumno-texto"
-                  }`}
+                  } ${tema.mostrarTexto ? "" : "sr-only"}`}
                 >
                   {activity.title}
                 </p>
@@ -384,7 +377,7 @@ export default function AgendaHoy({
                     </span>
                   )}
                   {isNext && (
-                    <span className="text-sm font-bold text-[#785500]">
+                    <span className="text-sm font-bold text-alumno-texto">
                       Siguiente
                     </span>
                   )}
@@ -401,7 +394,7 @@ export default function AgendaHoy({
               {isCurrent && (
                 <button
                   aria-label={`Continuar ${activity.title}, paso 1`}
-                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
                   onClick={() =>
                     router.push(
                       `/hoy/actividad/${activity.id}/paso/1`,
@@ -415,11 +408,8 @@ export default function AgendaHoy({
               {isNext && (
                 <button
                   aria-label={`Empezar ${activity.title}`}
-                  aria-describedby={
-                    isAfternoonLocked ? "afternoon-locked-message" : undefined
-                  }
-                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isAfternoonLocked || pendingId === activity.id}
+                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={pendingId === activity.id}
                   onClick={() => startActivity(activity.id)}
                   type="button"
                 >
@@ -444,7 +434,7 @@ export default function AgendaHoy({
             aria-pressed={period === "morning"}
             className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 ${
               period === "morning"
-                ? "bg-alumno-primario text-white"
+                ? "bg-alumno-primario text-alumno-sobre-primario"
                 : "text-alumno-texto-secundario hover:bg-alumno-lateral"
             }`}
             onClick={() => setPeriod("morning")}
@@ -459,7 +449,7 @@ export default function AgendaHoy({
             aria-pressed={period === "afternoon"}
             className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 ${
               period === "afternoon"
-                ? "bg-alumno-primario text-white"
+                ? "bg-alumno-primario text-alumno-sobre-primario"
                 : "text-alumno-texto-secundario hover:bg-alumno-lateral"
             }`}
             onClick={() => setPeriod("afternoon")}
@@ -476,6 +466,9 @@ export default function AgendaHoy({
         <CelebrationOverlay
           completionText={celebration.completionText}
           next={celebration.next}
+          pictogramaSiguiente={
+            celebration.next ? pictogramas.get(celebration.next.imagenId) : undefined
+          }
           onStartNext={() => {
             if (!celebration.next) return;
             setPeriod(

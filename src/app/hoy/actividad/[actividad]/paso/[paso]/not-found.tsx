@@ -7,7 +7,7 @@ export default function StepNotFound() {
         No se encontró este paso.
       </p>
       <Link
-        className="rounded-xl bg-alumno-primario px-5 py-3 font-bold text-white"
+        className="rounded-xl bg-alumno-primario px-5 py-3 font-bold text-alumno-sobre-primario"
         href="/hoy"
       >
         Volver a hoy

@@ -9,6 +9,8 @@ type CelebrationOverlayProps = {
     title: string;
     startTime: string;
   } | null;
+  /** Pictograma de la siguiente actividad (si ya ha llegado). */
+  pictogramaSiguiente?: { url: string; alt: string } | undefined;
   onDismiss: () => void;
   onStartNext: () => void;
 };
@@ -16,6 +18,7 @@ type CelebrationOverlayProps = {
 export default function CelebrationOverlay({
   completionText,
   next,
+  pictogramaSiguiente,
   onDismiss,
   onStartNext,
 }: CelebrationOverlayProps) {
@@ -75,7 +78,7 @@ export default function CelebrationOverlay({
             <path
               d="m12 2.5 2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.06l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.5Z"
               fill="var(--alumno-acento)"
-              stroke="#b8791d"
+              stroke="var(--alumno-acento)"
               strokeLinejoin="round"
               strokeWidth="1.7"
             />
@@ -101,13 +104,17 @@ export default function CelebrationOverlay({
               Lo siguiente
             </p>
             <div className="flex items-center gap-4 rounded-2xl border-2 border-alumno-primario bg-alumno-superficie p-3">
-              <span
-                aria-label="Pictograma no disponible"
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-alumno-superficie-hecha text-xs font-medium text-alumno-texto-suave"
-                role="img"
-              >
-                Sin imagen
-              </span>
+              {pictogramaSiguiente ? (
+                <img
+                  alt=""
+                  className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1"
+                  height={56}
+                  src={pictogramaSiguiente.url}
+                  width={56}
+                />
+              ) : (
+                <span aria-hidden="true" className="h-14 w-14 shrink-0 rounded-xl bg-alumno-superficie-hecha" />
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-lg font-bold text-alumno-texto sm:text-xl">
@@ -120,7 +127,7 @@ export default function CelebrationOverlay({
                 <p className="mt-1 text-alumno-texto-suave">{next.startTime}</p>
               </div>
               <button
-                className="flex min-h-14 shrink-0 items-center gap-2 rounded-xl bg-alumno-primario px-4 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:px-5"
+                className="flex min-h-14 shrink-0 items-center gap-2 rounded-xl bg-alumno-primario px-4 text-lg font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:px-5"
                 onClick={onStartNext}
                 ref={startNextButtonRef}
                 type="button"
@@ -143,7 +150,7 @@ export default function CelebrationOverlay({
         )}
 
         <button
-          className="mt-6 inline-flex min-h-16 items-center gap-3 rounded-2xl bg-alumno-primario px-8 text-xl font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          className="mt-6 inline-flex min-h-16 items-center gap-3 rounded-2xl bg-alumno-primario px-8 text-xl font-bold text-alumno-sobre-primario transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
           onClick={onDismiss}
           ref={returnButtonRef}
           type="button"
