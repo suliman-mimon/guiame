@@ -4,9 +4,12 @@ import { v } from "convex/values";
 
 // Nombres de tabla y de campo en español, siguiendo la terminología del
 // glosario de la Propuesta Técnica (apartado 1.e) y el modelo conceptual
-// entidad-relación (apartado 4.f). Las tres paletas de RI3.1 todavía no
-// tienen nombre ni valores HEX definidos (eso es la tarea A1 de la
-// iteración 1), así que se guardan como placeholders "paleta_1/2/3".
+// entidad-relación (apartado 4.f).
+//
+// Esquema v2 (Sprint 2): alinea tipoActividad, paletaColor, formatos de
+// lectura, permisos del alumno, multimedia en pasos y el catálogo de
+// emociones con Figma y las indicaciones de la profesora (ver
+// "Desajustes que hay que cerrar el lunes" en el plan de sprint).
 
 export default defineSchema({
   ...authTables,
@@ -82,12 +85,22 @@ export default defineSchema({
     .index("by_estudiante", ["estudianteId"]),
 
   // RI2.4. Información de imagen o pictograma. Usada por actividades,
-  // pasos, el catálogo de estados emocionales, usuarios y clases.
+  // pasos, el catálogo de emociones, usuarios y clases.
   imagenes: defineTable({
     ubicacionArchivo: v.string(),
     textoAlternativo: v.string(),
     arasaacId: v.optional(v.string()),
   }),
+
+  // Catálogo fijo de 6 emociones con su pictograma (desajuste #6). El
+  // tutor elige, por estudiante, si se muestran las 3 básicas o las 6
+  // (configuracionesVisuales.rangoEmociones); "básico" son las 3
+  // primeras por `orden`.
+  catalogoEmociones: defineTable({
+    nombre: v.string(),
+    orden: v.number(),
+    imagenId: v.id("imagenes"),
+  }).index("by_orden", ["orden"]),
 
   // RI2.1. Información de actividad. El horario no se guarda aquí, sino
   // en cada realización (RI2.2), porque cada estudiante puede hacerla en
@@ -96,11 +109,6 @@ export default defineSchema({
     titulo: v.string(),
     descripcion: v.optional(v.string()),
     tipoActividad: v.union(
-      v.literal("personal"),
-      v.literal("reprografia"),
-      v.literal("comedor"),
-      v.literal("menu_mensual"),
-      v.literal("guia_de_visita"),
       v.literal("academica"),
       v.literal("profesional"),
       v.literal("familiar"),
@@ -113,16 +121,17 @@ export default defineSchema({
   }).index("by_creadoPor", ["creadoPor"]),
 
   // RI2.3. Información de paso. Toda actividad tiene al menos un paso.
+  // Desajuste #5: además del pictograma, un paso puede llevar vídeo o
+  // audio (archivo en Convex File Storage); vídeo y audio son P2 este
+  // sprint, pero el esquema ya los admite para no bloquear más adelante.
   pasos: defineTable({
     actividadId: v.id("actividades"),
     orden: v.number(),
     texto: v.string(),
-    tipoMedio: v.optional(
-      v.union(
-        v.literal("pictograma"),
-        v.literal("video"),
-        v.literal("audio"),
-      ),
+    tipoMedio: v.union(
+      v.literal("pictograma"),
+      v.literal("video"),
+      v.literal("audio"),
     ),
     imagenId: v.optional(v.id("imagenes")),
     archivoId: v.optional(v.id("_storage")),
@@ -140,7 +149,6 @@ export default defineSchema({
     fFinProgramada: v.number(),
     hInicioReal: v.optional(v.number()),
     hFinReal: v.optional(v.number()),
-    pasoActual: v.optional(v.number()),
     duracionEstudiante: v.optional(v.number()), // minutos
     cancelada: v.boolean(),
     calificacion: v.optional(v.string()),
@@ -150,34 +158,47 @@ export default defineSchema({
     .index("by_actividad", ["actividadId"]),
 
   // RI2.5. Información de estado emocional. Un registro por estudiante y
-  // día como mucho; no representa un diagnóstico clínico.
+  // día como mucho; no representa un diagnóstico clínico. Desajuste #6:
+  // referencia al catálogo de emociones en vez de un enum fijo de 3.
   estadosEmocionales: defineTable({
     estudianteId: v.id("estudiantes"),
     fechaRegistro: v.string(), // "YYYY-MM-DD"
-    emocionSeleccionada: v.union(
-      v.literal("insatisfecho"),
-      v.literal("medio_satisfecho"),
-      v.literal("muy_satisfecho"),
-    ),
+    emocionId: v.id("catalogoEmociones"),
   }).index("by_estudiante_and_fecha", ["estudianteId", "fechaRegistro"]),
 
-  // RI3.1. Información de configuración visual. Como mucho una por
-  // estudiante; valores por defecto: primera paleta, tamaño normal,
-  // botones/texto/pictogramas visibles.
+  // RI3.1. Información de configuración visual y permisos del alumno.
+  // Como mucho una por estudiante.
+  //
+  // Desajuste #2: paletaColor con las 4 paletas con nombre de Figma (los
+  // valores HEX de cada una los fija Luis fuera del esquema, con
+  // contraste AA).
+  // Desajuste #3: un booleano independiente por formato de lectura
+  // (pictograma, texto, vídeo, audio), no las 3 combinaciones antiguas.
+  // Desajuste #4: permisos del alumno (ver semana, cambiar colores,
+  // decir cómo se siente, crear tareas), antes inexistentes.
+  // Desajuste #6: rango de emociones que el tutor activa para este
+  // alumno (básico = 3, ampliado = 6).
   configuracionesVisuales: defineTable({
     estudianteId: v.id("estudiantes"),
     paletaColor: v.union(
-      v.literal("paleta_1"),
-      v.literal("paleta_2"),
-      v.literal("paleta_3"),
+      v.literal("crema"),
+      v.literal("alto_contraste"),
+      v.literal("azul_calma"),
+      v.literal("noche"),
     ),
     escalaLetra: v.union(
       v.literal("normal"),
       v.literal("grande"),
       v.literal("muy_grande"),
     ),
-    mostrarBotones: v.boolean(),
+    mostrarPictograma: v.boolean(),
     mostrarTexto: v.boolean(),
-    mostrarPictogramas: v.boolean(),
+    mostrarVideo: v.boolean(),
+    mostrarAudio: v.boolean(),
+    rangoEmociones: v.union(v.literal("basico"), v.literal("ampliado")),
+    permiteVerSemana: v.boolean(),
+    permiteCambiarColores: v.boolean(),
+    permiteDecirComoSeSiente: v.boolean(),
+    permiteCrearTareas: v.boolean(),
   }).index("by_estudiante", ["estudianteId"]),
 });

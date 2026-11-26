@@ -9,10 +9,13 @@
  */
 
 import type * as accounts from "../accounts.js";
+import type * as actividades from "../actividades.js";
 import type * as auth from "../auth.js";
+import type * as configuracionesVisuales from "../configuracionesVisuales.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as realizaciones from "../realizaciones.js";
+import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 
 import type {
@@ -23,10 +26,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
+  actividades: typeof actividades;
   auth: typeof auth;
+  configuracionesVisuales: typeof configuracionesVisuales;
   http: typeof http;
   "lib/auth": typeof lib_auth;
   realizaciones: typeof realizaciones;
+  seed: typeof seed;
   users: typeof users;
 }>;
 

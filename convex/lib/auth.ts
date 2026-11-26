@@ -1,27 +1,110 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx, MutationCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 
-export async function requireSelfEstudiante(
+export type CurrentUser =
+  | {
+      kind: "tutor";
+      esAdministrador: boolean;
+      userId: Id<"users">;
+      tutor: Doc<"tutores">;
+    }
+  | { kind: "estudiante"; userId: Id<"users">; estudiante: Doc<"estudiantes"> };
+
+export async function getCurrentUser(
   ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"estudiantes">> {
+): Promise<CurrentUser | null> {
   const userId = await getAuthUserId(ctx);
-  if (userId === null) {
-    throw new Error("No autorizado: inicia sesión como estudiante");
-  }
+  if (userId === null) return null;
 
-  const user = await ctx.db.get("users", userId);
-  if (!user?.roles?.includes("estudiante")) {
-    throw new Error("No autorizado: se requiere una cuenta de estudiante");
+  const tutor = await ctx.db
+    .query("tutores")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (tutor !== null) {
+    const user = await ctx.db.get("users", userId);
+    const esAdministrador = user?.roles?.includes("administrador") ?? false;
+    return { kind: "tutor", esAdministrador, userId, tutor };
   }
 
   const estudiante = await ctx.db
     .query("estudiantes")
     .withIndex("by_userId", (q) => q.eq("userId", userId))
     .unique();
-  if (estudiante === null) {
-    throw new Error("La cuenta no tiene un perfil de estudiante asociado");
+  if (estudiante !== null) {
+    return { kind: "estudiante", userId, estudiante };
   }
 
-  return estudiante;
+  return null;
+}
+
+export async function requireTutorOrAdmin(
+  ctx: QueryCtx | MutationCtx,
+): Promise<CurrentUser & { kind: "tutor" }> {
+  const current = await getCurrentUser(ctx);
+  if (current === null || current.kind !== "tutor") {
+    throw new Error("No autorizado: se requiere tutor o administrador");
+  }
+  return current;
+}
+
+export async function requireSelfEstudiante(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Doc<"estudiantes">> {
+  const current = await getCurrentUser(ctx);
+  if (current === null || current.kind !== "estudiante") {
+    throw new Error("No autorizado: se requiere estudiante");
+  }
+  return current.estudiante;
+}
+
+// Un tutor puede ver a un alumno si tiene un vínculo directo con él o lo
+// supervisa a través de alguna de sus clases (en cualquier curso
+// académico). El administrador puede ver a cualquier alumno.
+export async function requireVeAlEstudianteOrAdmin(
+  ctx: QueryCtx | MutationCtx,
+  estudianteId: Id<"estudiantes">,
+): Promise<Doc<"tutores">> {
+  const current = await requireTutorOrAdmin(ctx);
+  if (current.esAdministrador) return current.tutor;
+
+  const vinculosDirectos = await ctx.db
+    .query("vinculosDirectos")
+    .withIndex("by_tutor", (q) => q.eq("tutorId", current.tutor._id))
+    .collect();
+  if (vinculosDirectos.some((v) => v.estudianteId === estudianteId)) {
+    return current.tutor;
+  }
+
+  const matriculas = await ctx.db
+    .query("matriculas")
+    .withIndex("by_estudiante", (q) => q.eq("estudianteId", estudianteId))
+    .collect();
+  const supervisiones = await ctx.db
+    .query("supervisiones")
+    .withIndex("by_tutor", (q) => q.eq("tutorId", current.tutor._id))
+    .collect();
+  const clasesSupervisadas = new Set(supervisiones.map((s) => s.claseId));
+  if (matriculas.some((m) => clasesSupervisadas.has(m.claseId))) {
+    return current.tutor;
+  }
+
+  throw new Error("No autorizado: no supervisas a este alumno");
+}
+
+// La agenda de un estudiante la puede consultar el propio estudiante (RF1.1,
+// RF1.2) o un tutor/administrador autorizado a verlo (RF1.2, RF6.2/RF6.3).
+export async function requireVerAgendaEstudiante(
+  ctx: QueryCtx | MutationCtx,
+  estudianteId: Id<"estudiantes">,
+): Promise<void> {
+  const current = await getCurrentUser(ctx);
+  if (current !== null && current.kind === "estudiante") {
+    if (current.estudiante._id !== estudianteId) {
+      throw new Error("No autorizado: solo puedes ver tu propia agenda");
+    }
+    return;
+  }
+
+  await requireVeAlEstudianteOrAdmin(ctx, estudianteId);
 }

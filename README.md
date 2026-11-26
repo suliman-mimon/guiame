@@ -97,6 +97,25 @@ npx convex run accounts:createTutor \
 Añadir `--prod` apunta a producción en vez de a tu deployment de desarrollo
 personal.
 
+### Datos de demo
+
+`npx convex run seed:seedDemoData` crea una tutora, 4 estudiantes, una clase
+("Aula 3") con sus matrículas, el catálogo de 6 emociones y 4 actividades
+con pictograma, pasos y una realización de ejemplo por estudiante para hoy
+(una completada, una en curso, el resto pendientes). Así se puede revisar
+el panel y la vista del estudiante sin dar de alta nada a mano. Cada
+preview de Vercel la ejecuta sola (`--preview-run` en `vercel.json`),
+porque nace con su propio deployment de Convex vacío.
+
+| Cuenta | Usuario | Contraseña |
+| --- | --- | --- |
+| Tutora | `marta.ruiz@centro-demo.es` | `Demo1234!` |
+| Estudiantes | `lucia`, `pablo`, `ana`, `javier` | `Demo1234!` |
+
+Las actividades y los estados emocionales son contenido de ejemplo
+provisional; se sustituyen cuando llegue el contenido real de Ignacio sin
+tocar la estructura del seed.
+
 ## Despliegue
 
 - **Vercel**: cada push a `main` dispara un build de producción. El comando
@@ -109,5 +128,5 @@ personal.
 
 El Manual de Coordinación (apartado de Control de versiones) fija como
 política integrar los cambios mediante Pull Request revisado en vez de
-push directo a `main`; todavía no hay una regla de protección de rama
-configurada en GitHub que lo exija.
+push directo a `main`; `main` ya tiene una regla de protección de rama en
+GitHub que lo exige (1 aprobación obligatoria).

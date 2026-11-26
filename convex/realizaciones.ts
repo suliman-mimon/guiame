@@ -1,136 +1,371 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
-import { requireSelfEstudiante } from "./lib/auth";
+import type { Id } from "./_generated/dataModel";
+import {
+  requireSelfEstudiante,
+  requireTutorOrAdmin,
+  requireVeAlEstudianteOrAdmin,
+  requireVerAgendaEstudiante,
+} from "./lib/auth";
 
-const MAX_DAILY_ASSIGNMENTS = 100;
-const MAX_STEPS_PER_ACTIVITY = 100;
+// Realizaciones (no canceladas, de actividades no canceladas) que ya tiene
+// un estudiante, para comprobar solapamientos de horario (RF2.6). Se usa el
+// índice by_estudiante_and_inicio para no barrer la tabla entera; el
+// conjunto resultante está acotado por estudiante, igual que listarAgenda.
+//
+// `excluirRealizacionId` lo usa reprogramar (RF2.2/RF2.6): "al modificar un
+// horario, no se comparará consigo mismo", así que la propia realización
+// que se está reprogramando se descarta del conjunto antes de comparar.
+// asignar nunca lo pasa, porque siempre crea realizaciones nuevas.
+async function cargarHorarioActivoDelEstudiante(
+  ctx: MutationCtx,
+  estudianteId: Id<"estudiantes">,
+  excluirRealizacionId?: Id<"realizaciones">,
+): Promise<Array<{ fInicioProgramada: number; fFinProgramada: number; titulo: string }>> {
+  const realizaciones = await ctx.db
+    .query("realizaciones")
+    .withIndex("by_estudiante_and_inicio", (q) => q.eq("estudianteId", estudianteId))
+    .collect();
 
-const fechaMadrid = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Europe/Madrid",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
+  const horario: Array<{
+    fInicioProgramada: number;
+    fFinProgramada: number;
+    titulo: string;
+  }> = [];
+  for (const realizacion of realizaciones) {
+    if (realizacion.cancelada) continue;
+    if (excluirRealizacionId !== undefined && realizacion._id === excluirRealizacionId) {
+      continue;
+    }
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null || actividad.cancelada) continue;
+    horario.push({
+      fInicioProgramada: realizacion.fInicioProgramada,
+      fFinProgramada: realizacion.fFinProgramada,
+      titulo: actividad.titulo,
+    });
+  }
+  return horario;
+}
+
+function seSolapan(
+  a: { fInicioProgramada: number; fFinProgramada: number },
+  b: { fInicioProgramada: number; fFinProgramada: number },
+): boolean {
+  // Intervalo semiabierto [inicio, fin): solapamiento total o parcial.
+  return a.fInicioProgramada < b.fFinProgramada && a.fFinProgramada > b.fInicioProgramada;
+}
+
+// RF2.5 / RF2.6 (GM-07): asignar una actividad a uno o varios estudiantes,
+// cada uno con su propio horario previsto y, si hace falta, una duración
+// distinta de la común. Antes de confirmar nada se comprueba que ningún
+// horario nuevo se solapa, total o parcialmente, con otra actividad ya en
+// la agenda de ese estudiante (ni con otro horario nuevo de la misma
+// llamada para el mismo estudiante). Si hay conflicto para cualquier
+// estudiante se rechaza toda la operación (nada se inserta) para que el
+// tutor pueda corregir el horario y volver a intentarlo.
+export const asignar = mutation({
+  args: {
+    actividadId: v.id("actividades"),
+    asignaciones: v.array(
+      v.object({
+        estudianteId: v.id("estudiantes"),
+        fInicioProgramada: v.number(),
+        fFinProgramada: v.number(),
+        duracionEstudiante: v.optional(v.number()),
+      }),
+    ),
+  },
+  returns: v.array(v.id("realizaciones")),
+  handler: async (ctx, args) => {
+    const current = await requireTutorOrAdmin(ctx);
+
+    const actividad = await ctx.db.get("actividades", args.actividadId);
+    if (actividad === null) {
+      throw new Error("La actividad no existe");
+    }
+    if (actividad.creadoPor !== current.userId && !current.esAdministrador) {
+      throw new Error(
+        "No autorizado: solo quien creó la actividad o el administrador puede asignarla",
+      );
+    }
+
+    if (args.asignaciones.length === 0) {
+      throw new Error("Debes indicar al menos un estudiante");
+    }
+
+    const ahora = Date.now();
+
+    // Paso 1: validar cada asignación y comprobar que el tutor puede ver a
+    // cada estudiante, antes de tocar nada de solapamientos.
+    for (const asignacion of args.asignaciones) {
+      if (
+        !Number.isFinite(asignacion.fInicioProgramada) ||
+        !Number.isFinite(asignacion.fFinProgramada)
+      ) {
+        throw new Error("La fecha y hora de inicio y fin deben ser válidas");
+      }
+      if (asignacion.fInicioProgramada < ahora) {
+        throw new Error(
+          "No se puede asignar una actividad con una fecha anterior a la actual",
+        );
+      }
+      if (asignacion.fFinProgramada <= asignacion.fInicioProgramada) {
+        throw new Error(
+          "La hora de fin debe ser posterior a la hora de inicio",
+        );
+      }
+      if (
+        asignacion.duracionEstudiante !== undefined &&
+        (!Number.isFinite(asignacion.duracionEstudiante) ||
+          asignacion.duracionEstudiante <= 0)
+      ) {
+        throw new Error("La duración del estudiante debe ser un número positivo");
+      }
+
+      await requireVeAlEstudianteOrAdmin(ctx, asignacion.estudianteId);
+    }
+
+    // Paso 2 (RF2.6): comprobar solapamientos. Se lee el horario activo de
+    // cada estudiante una sola vez (memorizado en este mapa) y se va
+    // ampliando con cada asignación ya validada de esta misma llamada, para
+    // detectar también dos horarios nuevos que se solapen entre sí.
+    const horarioPorEstudiante = new Map<
+      Id<"estudiantes">,
+      Array<{ fInicioProgramada: number; fFinProgramada: number; titulo: string }>
+    >();
+
+    for (const asignacion of args.asignaciones) {
+      let horario = horarioPorEstudiante.get(asignacion.estudianteId);
+      if (horario === undefined) {
+        horario = await cargarHorarioActivoDelEstudiante(ctx, asignacion.estudianteId);
+        horarioPorEstudiante.set(asignacion.estudianteId, horario);
+      }
+
+      const conflicto = horario.find((existente) => seSolapan(existente, asignacion));
+      if (conflicto !== undefined) {
+        throw new Error(
+          `No se puede asignar: el horario se solapa con "${conflicto.titulo}" en la agenda de este estudiante. Corrige el horario e inténtalo de nuevo.`,
+        );
+      }
+
+      horario.push({
+        fInicioProgramada: asignacion.fInicioProgramada,
+        fFinProgramada: asignacion.fFinProgramada,
+        titulo: actividad.titulo,
+      });
+    }
+
+    // Paso 3: todas las asignaciones son válidas y no hay conflictos; se
+    // insertan todas (si algo fallase aquí, la transacción de Convex
+    // deshace la mutación entera, así que nunca queda una inserción a
+    // medias).
+    const ids: Array<Id<"realizaciones">> = [];
+    for (const asignacion of args.asignaciones) {
+      const realizacionId = await ctx.db.insert("realizaciones", {
+        estudianteId: asignacion.estudianteId,
+        actividadId: args.actividadId,
+        asignadoPor: current.tutor._id,
+        fInicioProgramada: asignacion.fInicioProgramada,
+        fFinProgramada: asignacion.fFinProgramada,
+        duracionEstudiante: asignacion.duracionEstudiante,
+        cancelada: false,
+      });
+      ids.push(realizacionId);
+    }
+
+    return ids;
+  },
 });
 
-const horaMadrid = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Europe/Madrid",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
+// RF2.3: cancelar una actividad para uno o varios estudiantes. Marca las
+// realizaciones correspondientes, no la actividad entera, para que siga
+// visible para otros estudiantes a los que también se asignó.
+export const cancelar = mutation({
+  args: {
+    actividadId: v.id("actividades"),
+    estudianteIds: v.array(v.id("estudiantes")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = await requireTutorOrAdmin(ctx);
+
+    const actividad = await ctx.db.get("actividades", args.actividadId);
+    if (actividad === null) {
+      throw new Error("La actividad no existe");
+    }
+    if (actividad.creadoPor !== current.userId && !current.esAdministrador) {
+      throw new Error(
+        "No autorizado: solo quien creó la actividad o el administrador puede cancelarla",
+      );
+    }
+
+    if (args.estudianteIds.length === 0) {
+      throw new Error("Debes indicar al menos un estudiante");
+    }
+
+    const realizacionesDeActividad = await ctx.db
+      .query("realizaciones")
+      .withIndex("by_actividad", (q) => q.eq("actividadId", args.actividadId))
+      .collect();
+
+    for (const estudianteId of args.estudianteIds) {
+      await requireVeAlEstudianteOrAdmin(ctx, estudianteId);
+
+      const coincidencias = realizacionesDeActividad.filter(
+        (r) => r.estudianteId === estudianteId && !r.cancelada,
+      );
+      for (const realizacion of coincidencias) {
+        await ctx.db.patch("realizaciones", realizacion._id, {
+          cancelada: true,
+        });
+      }
+    }
+
+    return null;
+  },
 });
 
-const imagenAgendaValidator = v.union(
-  v.null(),
-  v.object({
-    ubicacionArchivo: v.string(),
-    textoAlternativo: v.string(),
-    arasaacId: v.union(v.string(), v.null()),
-  }),
-);
+// RF2.2 / RF2.6: reprogramar el horario de una realización ya asignada
+// (parte de "modificar actividad": el horario de cada estudiante se cambia
+// en su asignación, no en la plantilla). Misma autorización que
+// asignar/cancelar/modificar: solo quien creó la actividad, o el
+// administrador. Se rechaza sobre una realización o actividad cancelada, o
+// ya completada (hFinReal), por la misma razón que modificar rechaza
+// actividades ya completadas: el horario de algo que ya ha pasado no
+// debería poder tocarse. El solapamiento (RF2.6) se comprueba excluyendo
+// esta misma realización del horario del estudiante, que es la diferencia
+// explícita de este caso frente a asignar (que siempre crea filas nuevas).
+export const reprogramar = mutation({
+  args: {
+    realizacionId: v.id("realizaciones"),
+    fInicioProgramada: v.number(),
+    fFinProgramada: v.number(),
+    duracionEstudiante: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = await requireTutorOrAdmin(ctx);
 
-const actividadAgendaValidator = v.object({
+    const realizacion = await ctx.db.get("realizaciones", args.realizacionId);
+    if (realizacion === null) {
+      throw new Error("La realización no existe");
+    }
+
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null) {
+      throw new Error("La actividad no existe");
+    }
+    if (actividad.creadoPor !== current.userId && !current.esAdministrador) {
+      throw new Error(
+        "No autorizado: solo quien creó la actividad o el administrador puede reprogramarla",
+      );
+    }
+    // Mismo nivel de comprobación que asignar/cancelar: además de ser
+    // quien creó la actividad, el tutor debe poder ver a este estudiante
+    // en concreto (vínculo directo o supervisión de su clase).
+    await requireVeAlEstudianteOrAdmin(ctx, realizacion.estudianteId);
+
+    if (realizacion.cancelada || actividad.cancelada) {
+      throw new Error("No se puede reprogramar una actividad cancelada");
+    }
+    if (realizacion.hFinReal !== undefined) {
+      throw new Error(
+        "No se puede reprogramar una actividad que ya se ha completado",
+      );
+    }
+
+    if (
+      !Number.isFinite(args.fInicioProgramada) ||
+      !Number.isFinite(args.fFinProgramada)
+    ) {
+      throw new Error("La fecha y hora de inicio y fin deben ser válidas");
+    }
+    const ahora = Date.now();
+    if (args.fInicioProgramada < ahora) {
+      throw new Error(
+        "No se puede reprogramar una actividad con una fecha anterior a la actual",
+      );
+    }
+    if (args.fFinProgramada <= args.fInicioProgramada) {
+      throw new Error("La hora de fin debe ser posterior a la hora de inicio");
+    }
+    if (
+      args.duracionEstudiante !== undefined &&
+      (!Number.isFinite(args.duracionEstudiante) || args.duracionEstudiante <= 0)
+    ) {
+      throw new Error("La duración del estudiante debe ser un número positivo");
+    }
+
+    const horario = await cargarHorarioActivoDelEstudiante(
+      ctx,
+      realizacion.estudianteId,
+      args.realizacionId,
+    );
+    const nuevoHorario = {
+      fInicioProgramada: args.fInicioProgramada,
+      fFinProgramada: args.fFinProgramada,
+    };
+    const conflicto = horario.find((existente) => seSolapan(existente, nuevoHorario));
+    if (conflicto !== undefined) {
+      throw new Error(
+        `No se puede reprogramar: el horario se solapa con "${conflicto.titulo}" en la agenda de este estudiante. Corrige el horario e inténtalo de nuevo.`,
+      );
+    }
+
+    const cambios: {
+      fInicioProgramada: number;
+      fFinProgramada: number;
+      duracionEstudiante?: number;
+    } = {
+      fInicioProgramada: args.fInicioProgramada,
+      fFinProgramada: args.fFinProgramada,
+    };
+    if (args.duracionEstudiante !== undefined) {
+      cambios.duracionEstudiante = args.duracionEstudiante;
+    }
+
+    await ctx.db.patch("realizaciones", args.realizacionId, cambios);
+    return null;
+  },
+});
+
+const entradaAgenda = v.object({
   realizacionId: v.id("realizaciones"),
   actividadId: v.id("actividades"),
   titulo: v.string(),
-  descripcion: v.union(v.string(), v.null()),
-  inicioProgramado: v.number(),
-  finProgramado: v.number(),
-  inicioReal: v.union(v.number(), v.null()),
-  finReal: v.union(v.number(), v.null()),
-  pasoActual: v.union(v.number(), v.null()),
-  numeroPasos: v.number(),
-  imagen: imagenAgendaValidator,
+  tipoActividad: v.union(
+    v.literal("academica"),
+    v.literal("profesional"),
+    v.literal("familiar"),
+    v.literal("del_estudiante"),
+  ),
+  imagenId: v.id("imagenes"),
+  fInicioProgramada: v.number(),
+  fFinProgramada: v.number(),
+  duracionEstudiante: v.optional(v.number()),
+  hInicioReal: v.optional(v.number()),
+  hFinReal: v.optional(v.number()),
 });
 
-function parteNumerica(
-  parts: Intl.DateTimeFormatPart[],
-  type: Intl.DateTimeFormatPartTypes,
-) {
-  const value = parts.find((part) => part.type === type)?.value;
-  if (value === undefined) {
-    throw new Error(`No se pudo calcular la fecha local (${type})`);
-  }
-  return Number(value);
-}
-
-function inicioDiaMadrid(year: number, month: number, day: number) {
-  const utcMidnight = Date.UTC(year, month - 1, day);
-  const parts = horaMadrid.formatToParts(new Date(utcMidnight));
-  const localAsUtc = Date.UTC(
-    parteNumerica(parts, "year"),
-    parteNumerica(parts, "month") - 1,
-    parteNumerica(parts, "day"),
-    parteNumerica(parts, "hour"),
-    parteNumerica(parts, "minute"),
-    parteNumerica(parts, "second"),
-  );
-  return utcMidnight - (localAsUtc - utcMidnight);
-}
-
-function rangoDiaMadrid(fecha: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fecha);
-  if (match === null) {
-    throw new Error("La fecha debe tener el formato YYYY-MM-DD");
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() + 1 !== month ||
-    date.getUTCDate() !== day
-  ) {
-    throw new Error("La fecha no es válida");
-  }
-
-  const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
-  return {
-    inicio: inicioDiaMadrid(year, month, day),
-    fin: inicioDiaMadrid(
-      nextDay.getUTCFullYear(),
-      nextDay.getUTCMonth() + 1,
-      nextDay.getUTCDate(),
-    ),
-  };
-}
-
-function fechaLocalMadrid(timestamp: number) {
-  const parts = fechaMadrid.formatToParts(new Date(timestamp));
-  return `${parteNumerica(parts, "year")}-${String(
-    parteNumerica(parts, "month"),
-  ).padStart(2, "0")}-${String(parteNumerica(parts, "day")).padStart(2, "0")}`;
-}
-
-async function cargarPasos(
-  ctx: QueryCtx | MutationCtx,
-  actividadId: Id<"actividades">,
-) {
-  const pasos = await ctx.db
-    .query("pasos")
-    .withIndex("by_actividad_and_orden", (q) =>
-      q.eq("actividadId", actividadId),
-    )
-    .take(MAX_STEPS_PER_ACTIVITY + 1);
-  if (pasos.length > MAX_STEPS_PER_ACTIVITY) {
-    throw new Error("La actividad excede el máximo permitido de pasos");
-  }
-  return pasos;
-}
-
-async function cargarRealizacionesDelDia(
-  ctx: QueryCtx | MutationCtx,
+// Compartida por listarAgenda y miAgenda: una vez autorizado el acceso,
+// ambas consultan y mapean la agenda igual. hInicioReal/hFinReal van en el
+// resultado para que el cliente sepa si debe mostrar "Empiezo", "En curso"
+// o "Hecho" sin tener que pedir el detalle de cada realización aparte.
+async function obtenerAgenda(
+  ctx: QueryCtx,
   estudianteId: Id<"estudiantes">,
-  fecha: string,
+  inicio: number,
+  fin: number,
 ) {
-  const { inicio, fin } = rangoDiaMadrid(fecha);
+  if (!Number.isFinite(inicio) || !Number.isFinite(fin)) {
+    throw new Error("El rango de fechas no es válido");
+  }
+  if (fin <= inicio) {
+    throw new Error("El fin del rango debe ser posterior al inicio");
+  }
+
   const realizaciones = await ctx.db
     .query("realizaciones")
     .withIndex("by_estudiante_and_inicio", (q) =>
@@ -139,321 +374,195 @@ async function cargarRealizacionesDelDia(
         .gte("fInicioProgramada", inicio)
         .lt("fInicioProgramada", fin),
     )
-    .take(MAX_DAILY_ASSIGNMENTS + 1);
-  if (realizaciones.length > MAX_DAILY_ASSIGNMENTS) {
-    throw new Error("La agenda del día excede el máximo de actividades");
+    .collect();
+
+  const resultado = [];
+  for (const realizacion of realizaciones) {
+    if (realizacion.cancelada) continue;
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null || actividad.cancelada) continue;
+    resultado.push({
+      realizacionId: realizacion._id,
+      actividadId: actividad._id,
+      titulo: actividad.titulo,
+      tipoActividad: actividad.tipoActividad,
+      imagenId: actividad.imagenId,
+      fInicioProgramada: realizacion.fInicioProgramada,
+      fFinProgramada: realizacion.fFinProgramada,
+      duracionEstudiante: realizacion.duracionEstudiante,
+      hInicioReal: realizacion.hInicioReal,
+      hFinReal: realizacion.hFinReal,
+    });
   }
-  return realizaciones;
+  return resultado;
 }
 
-async function actividadDeRealizacion(
-  ctx: QueryCtx | MutationCtx,
-  realizacion: Doc<"realizaciones">,
-) {
-  const actividad = await ctx.db.get("actividades", realizacion.actividadId);
-  if (actividad === null || actividad.cancelada || realizacion.cancelada) {
-    return null;
-  }
-
-  const [imagen, pasos] = await Promise.all([
-    ctx.db.get("imagenes", actividad.imagenId),
-    cargarPasos(ctx, actividad._id),
-  ]);
-  return { actividad, imagen, pasos };
-}
-
-async function obtenerRealizacionPropia(
-  ctx: QueryCtx | MutationCtx,
-  realizacionId: Id<"realizaciones">,
-) {
-  const estudiante = await requireSelfEstudiante(ctx);
-  const realizacion = await ctx.db.get("realizaciones", realizacionId);
-  if (realizacion === null) {
-    throw new Error("La actividad asignada no existe");
-  }
-  if (realizacion.estudianteId !== estudiante._id) {
-    throw new Error("No autorizado: esta actividad no está asignada a tu cuenta");
-  }
-  return { estudiante, realizacion };
-}
-
-export const miAgenda = query({
-  args: { fecha: v.string() },
-  returns: v.array(actividadAgendaValidator),
+// RF1.1 / RF1.2: agenda de un estudiante entre dos instantes (día o
+// semana, según lo que calcule el cliente a partir de la hora local). Ya
+// viene ordenada ascendentemente por el índice usado. Para el propio
+// estudiante, usar miAgenda (no necesita pasar su estudianteId).
+export const listarAgenda = query({
+  args: {
+    estudianteId: v.id("estudiantes"),
+    inicio: v.number(),
+    fin: v.number(),
+  },
+  returns: v.array(entradaAgenda),
   handler: async (ctx, args) => {
-    const estudiante = await requireSelfEstudiante(ctx);
-    const realizaciones = await cargarRealizacionesDelDia(
-      ctx,
-      estudiante._id,
-      args.fecha,
-    );
-    const actividades = [];
-
-    for (const realizacion of realizaciones) {
-      const datos = await actividadDeRealizacion(ctx, realizacion);
-      if (datos === null) continue;
-      actividades.push({
-        realizacionId: realizacion._id,
-        actividadId: datos.actividad._id,
-        titulo: datos.actividad.titulo,
-        descripcion: datos.actividad.descripcion ?? null,
-        inicioProgramado: realizacion.fInicioProgramada,
-        finProgramado: realizacion.fFinProgramada,
-        inicioReal: realizacion.hInicioReal ?? null,
-        finReal: realizacion.hFinReal ?? null,
-        pasoActual: realizacion.pasoActual ?? null,
-        numeroPasos: datos.pasos.length,
-        imagen:
-          datos.imagen === null
-            ? null
-            : {
-                ubicacionArchivo: datos.imagen.ubicacionArchivo,
-                textoAlternativo: datos.imagen.textoAlternativo,
-                arasaacId: datos.imagen.arasaacId ?? null,
-              },
-      });
-    }
-
-    return actividades;
+    await requireVerAgendaEstudiante(ctx, args.estudianteId);
+    return await obtenerAgenda(ctx, args.estudianteId, args.inicio, args.fin);
   },
 });
 
-export const obtenerDetalle = query({
-  args: {
-    realizacionId: v.id("realizaciones"),
-    numeroPaso: v.number(),
+// RF1.1 / RF1.2: igual que listarAgenda, pero para que el propio
+// estudiante consulte su agenda sin tener que conocer (ni poder falsear)
+// su estudianteId: se deriva de la sesión con requireSelfEstudiante.
+export const miAgenda = query({
+  args: { inicio: v.number(), fin: v.number() },
+  returns: v.array(entradaAgenda),
+  handler: async (ctx, args) => {
+    const estudiante = await requireSelfEstudiante(ctx);
+    return await obtenerAgenda(ctx, estudiante._id, args.inicio, args.fin);
   },
+});
+
+// RF1.3: detalle de una actividad asignada (una realización concreta),
+// con sus pasos en orden.
+export const obtenerDetalle = query({
+  args: { realizacionId: v.id("realizaciones") },
   returns: v.union(
     v.null(),
     v.object({
       realizacionId: v.id("realizaciones"),
       titulo: v.string(),
-      descripcion: v.union(v.string(), v.null()),
-      inicioProgramado: v.number(),
-      finProgramado: v.number(),
-      numeroPaso: v.number(),
-      pasoActual: v.number(),
-      totalPasos: v.number(),
-      paso: v.object({
-        texto: v.string(),
-        tipoMedio: v.union(
-          v.literal("pictograma"),
-          v.literal("video"),
-          v.literal("audio"),
-        ),
-        imagen: imagenAgendaValidator,
-        archivoUrl: v.union(v.string(), v.null()),
-      }),
+      descripcion: v.optional(v.string()),
+      imagenId: v.id("imagenes"),
+      fInicioProgramada: v.number(),
+      fFinProgramada: v.number(),
+      pasos: v.array(
+        v.object({
+          orden: v.number(),
+          texto: v.string(),
+          tipoMedio: v.union(
+            v.literal("pictograma"),
+            v.literal("video"),
+            v.literal("audio"),
+          ),
+          imagenId: v.optional(v.id("imagenes")),
+          archivoId: v.optional(v.id("_storage")),
+        }),
+      ),
     }),
   ),
   handler: async (ctx, args) => {
-    const { realizacion } = await obtenerRealizacionPropia(
-      ctx,
-      args.realizacionId,
-    );
-    if (
-      realizacion.cancelada ||
-      realizacion.hInicioReal === undefined ||
-      realizacion.hFinReal !== undefined ||
-      !Number.isInteger(args.numeroPaso) ||
-      args.numeroPaso < 1
-    ) {
-      return null;
-    }
+    const realizacion = await ctx.db.get("realizaciones", args.realizacionId);
+    if (realizacion === null) return null;
 
-    const datos = await actividadDeRealizacion(ctx, realizacion);
-    if (datos === null) return null;
+    await requireVerAgendaEstudiante(ctx, realizacion.estudianteId);
 
-    const pasoActual = realizacion.pasoActual ?? 1;
-    if (
-      args.numeroPaso > pasoActual ||
-      args.numeroPaso > datos.pasos.length
-    ) {
-      return null;
-    }
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null) return null;
 
-    const paso = datos.pasos[args.numeroPaso - 1];
-    if (paso === undefined) return null;
-
-    const imagen =
-      paso.imagenId === undefined
-        ? datos.imagen
-        : await ctx.db.get("imagenes", paso.imagenId);
-    const archivoUrl =
-      paso.archivoId === undefined
-        ? null
-        : await ctx.storage.getUrl(paso.archivoId);
+    const pasos = await ctx.db
+      .query("pasos")
+      .withIndex("by_actividad_and_orden", (q) =>
+        q.eq("actividadId", actividad._id),
+      )
+      .collect();
 
     return {
       realizacionId: realizacion._id,
-      titulo: datos.actividad.titulo,
-      descripcion: datos.actividad.descripcion ?? null,
-      inicioProgramado: realizacion.fInicioProgramada,
-      finProgramado: realizacion.fFinProgramada,
-      numeroPaso: args.numeroPaso,
-      pasoActual,
-      totalPasos: datos.pasos.length,
-      paso: {
+      titulo: actividad.titulo,
+      descripcion: actividad.descripcion,
+      imagenId: actividad.imagenId,
+      fInicioProgramada: realizacion.fInicioProgramada,
+      fFinProgramada: realizacion.fFinProgramada,
+      pasos: pasos.map((paso) => ({
+        orden: paso.orden,
         texto: paso.texto,
-        tipoMedio: paso.tipoMedio ?? "pictograma",
-        imagen:
-          imagen === null
-            ? null
-            : {
-                ubicacionArchivo: imagen.ubicacionArchivo,
-                textoAlternativo: imagen.textoAlternativo,
-                arasaacId: imagen.arasaacId ?? null,
-              },
-        archivoUrl,
-      },
+        tipoMedio: paso.tipoMedio,
+        imagenId: paso.imagenId,
+        archivoId: paso.archivoId,
+      })),
     };
   },
 });
 
+// RF3.1 (GM-08): el propio estudiante marca cuándo empieza una actividad
+// asignada. Es una acción del alumno, no del tutor: nunca se recibe el
+// estudiante como argumento, se deriva de ctx.auth (requireSelfEstudiante).
 export const empezar = mutation({
   args: { realizacionId: v.id("realizaciones") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { estudiante, realizacion } = await obtenerRealizacionPropia(
-      ctx,
-      args.realizacionId,
-    );
+    const estudiante = await requireSelfEstudiante(ctx);
+
+    const realizacion = await ctx.db.get("realizaciones", args.realizacionId);
+    if (realizacion === null) {
+      throw new Error("La realización no existe");
+    }
+    if (realizacion.estudianteId !== estudiante._id) {
+      throw new Error(
+        "No autorizado: esta actividad no está asignada a tu cuenta",
+      );
+    }
     if (realizacion.cancelada) {
       throw new Error("No se puede empezar una actividad cancelada");
     }
     const actividad = await ctx.db.get("actividades", realizacion.actividadId);
     if (actividad === null || actividad.cancelada) {
       throw new Error("No se puede empezar una actividad cancelada");
+    }
+    if (realizacion.hInicioReal !== undefined) {
+      throw new Error("Esta actividad ya se había empezado");
+    }
+
+    await ctx.db.patch("realizaciones", args.realizacionId, {
+      hInicioReal: Date.now(),
+    });
+    return null;
+  },
+});
+
+// RF3.2 (GM-08): el propio estudiante marca cuándo termina una actividad
+// que ya había empezado. Calcula duracionEstudiante (minutos realmente
+// empleados), distinta de la duración nominal de la actividad.
+export const terminar = mutation({
+  args: { realizacionId: v.id("realizaciones") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const estudiante = await requireSelfEstudiante(ctx);
+
+    const realizacion = await ctx.db.get("realizaciones", args.realizacionId);
+    if (realizacion === null) {
+      throw new Error("La realización no existe");
+    }
+    if (realizacion.estudianteId !== estudiante._id) {
+      throw new Error(
+        "No autorizado: esta actividad no está asignada a tu cuenta",
+      );
+    }
+    if (realizacion.cancelada) {
+      throw new Error("No se puede terminar una actividad cancelada");
+    }
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null || actividad.cancelada) {
+      throw new Error("No se puede terminar una actividad cancelada");
+    }
+    if (realizacion.hInicioReal === undefined) {
+      throw new Error("No puedes terminar una actividad que no has empezado");
     }
     if (realizacion.hFinReal !== undefined) {
       throw new Error("Esta actividad ya se había terminado");
     }
 
-    const fecha = fechaLocalMadrid(realizacion.fInicioProgramada);
-    const delDia = await cargarRealizacionesDelDia(
-      ctx,
-      estudiante._id,
-      fecha,
-    );
-    const indiceActual = delDia.findIndex(
-      (item) => item._id === realizacion._id,
-    );
-    if (indiceActual < 0) {
-      throw new Error("La actividad no está dentro de la agenda del día");
-    }
-
-    for (const item of delDia) {
-      if (item.cancelada) continue;
-      const otraActividad = await ctx.db.get("actividades", item.actividadId);
-      if (
-        otraActividad === null ||
-        otraActividad.cancelada ||
-        item.hInicioReal === undefined ||
-        item.hFinReal !== undefined ||
-        item._id === realizacion._id
-      ) {
-        continue;
-      }
-      throw new Error("Termina la actividad en curso antes de empezar otra");
-    }
-
-    for (const anterior of delDia.slice(0, indiceActual)) {
-      if (anterior.cancelada || anterior.hFinReal !== undefined) continue;
-      const actividadAnterior = await ctx.db.get(
-        "actividades",
-        anterior.actividadId,
-      );
-      if (actividadAnterior !== null && !actividadAnterior.cancelada) {
-        throw new Error("Completa la actividad anterior antes de continuar");
-      }
-    }
-
-    if (realizacion.hInicioReal !== undefined) return null;
-
-    await ctx.db.patch("realizaciones", realizacion._id, {
-      hInicioReal: Date.now(),
-      pasoActual: 1,
-    });
-    return null;
-  },
-});
-
-export const avanzarPaso = mutation({
-  args: {
-    realizacionId: v.id("realizaciones"),
-    numeroPaso: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { realizacion } = await obtenerRealizacionPropia(
-      ctx,
-      args.realizacionId,
-    );
-    if (
-      realizacion.cancelada ||
-      realizacion.hInicioReal === undefined ||
-      realizacion.hFinReal !== undefined
-    ) {
-      throw new Error("La actividad no está en curso");
-    }
-
-    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
-    if (actividad === null || actividad.cancelada) {
-      throw new Error("No se puede avanzar en una actividad cancelada");
-    }
-    const pasos = await cargarPasos(ctx, actividad._id);
-    const pasoActual = realizacion.pasoActual ?? 1;
-    if (args.numeroPaso !== pasoActual) {
-      throw new Error("Completa el paso actual antes de continuar");
-    }
-    if (pasoActual >= pasos.length) {
-      throw new Error("Ya estás en el último paso");
-    }
-
-    await ctx.db.patch("realizaciones", realizacion._id, {
-      pasoActual: pasoActual + 1,
-    });
-    return null;
-  },
-});
-
-export const terminar = mutation({
-  args: { realizacionId: v.id("realizaciones") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const { realizacion } = await obtenerRealizacionPropia(
-      ctx,
-      args.realizacionId,
-    );
-    if (realizacion.cancelada) {
-      throw new Error("No se puede terminar una actividad cancelada");
-    }
-    if (
-      realizacion.hInicioReal === undefined ||
-      realizacion.hFinReal !== undefined
-    ) {
-      throw new Error("La actividad no está en curso");
-    }
-
-    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
-    if (actividad === null || actividad.cancelada) {
-      throw new Error("No se puede terminar una actividad cancelada");
-    }
-    const pasos = await cargarPasos(ctx, actividad._id);
-    if (
-      pasos.length > 0 &&
-      (realizacion.pasoActual ?? 1) !== pasos.length
-    ) {
-      throw new Error("Completa todos los pasos antes de terminar");
-    }
-
     const hFinReal = Date.now();
-    await ctx.db.patch("realizaciones", realizacion._id, {
+    const duracionEstudiante = Math.round(
+      (hFinReal - realizacion.hInicioReal) / 60000,
+    );
+    await ctx.db.patch("realizaciones", args.realizacionId, {
       hFinReal,
-      duracionEstudiante: Math.max(
-        0,
-        Math.round((hFinReal - realizacion.hInicioReal) / 60000),
-      ),
+      duracionEstudiante,
     });
     return null;
   },

@@ -1,7 +1,95 @@
 @import "tailwindcss";
 
+/*
+ * GM-20 · Tokens de diseño de GuiaMe, sacados de Figma («GuiaMe – Bocetos»):
+ * colores de W2 «Mis estudiantes» (panel) y de 2 «Hoy · Mañana» (alumno),
+ * y la tipografía Atkinson Hyperlegible (se carga en src/app/layout.tsx).
+ * Los valores marcados «derivado» no están en Figma: se han calculado a partir
+ * de los de Figma y conviene confirmarlos al dibujar las pantallas que los usan.
+ *
+ * - Panel del profesional (W1–W5): clases `*-panel-*`, `texto*`, `alerta`, `aviso`, `exito`.
+ * - App del alumno (pantallas 1–8): clases `*-alumno-*`. Sus valores son variables
+ *   CSS para que el TemaProvider (GM-35, Luis) cambie de paleta sin tocar componentes:
+ *   basta con redefinir las variables `--alumno-*` (por ejemplo, con `data-paleta`).
+ *
+ * Cambia los valores solo aquí: los componentes usan siempre los nombres.
+ */
+
+:root {
+  /* App del alumno · paleta «Crema» (la de por defecto), de Figma */
+  --alumno-fondo: #f8f4ec;
+  --alumno-superficie: #fffdf8;
+  --alumno-superficie-hecha: #fbf8f1;
+  --alumno-lateral: #f3eee3;
+  --alumno-primario: #1f5c58;
+  --alumno-primario-hover: #184a47; /* derivado */
+  --alumno-acento: #f2b643;
+  --alumno-texto: #1f2626;
+  --alumno-texto-secundario: #2b3a38;
+  --alumno-texto-suave: #5e5c57;
+  --alumno-texto-apagado: #6e6b65;
+  --alumno-borde: #e3dccf;
+}
+
+@theme {
+  /* Tipografía de Figma: Atkinson Hyperlegible (400 y 700) */
+  --font-sans: var(--font-guiame, ui-sans-serif), system-ui, sans-serif;
+
+  /* Panel del profesional, de Figma */
+  --color-panel-fondo: #f6f5f2;
+  --color-panel-superficie: #ffffff;
+  --color-panel-lateral: #ffffff;
+  --color-panel-primario: #1f4fb5;
+  --color-panel-primario-hover: #1a4299; /* derivado */
+  --color-panel-primario-suave: #e6edfa;
+  --color-panel-borde: #e2dfd8;
+  --color-panel-pista: #efeeea;
+
+  /* Texto, de Figma */
+  --color-texto: #1b1b1f;
+  --color-texto-secundario: #45464c;
+  --color-texto-suave: #55565c;
+
+  /* Estados */
+  --color-alerta: #9a3412; /* Figma: retraso en W2 */
+  --color-alerta-suave: #fbeee7; /* derivado */
+  --color-aviso: #f2b643; /* Figma: «Ahora» y «Siguiente» */
+  --color-aviso-suave: #fdf3dc; /* derivado */
+  --color-exito: #2f7a4f; /* derivado: confirmar con W3 */
+  --color-exito-suave: #e6f4ec; /* derivado: confirmar con W3 */
+
+  /* Formas */
+  --radius-tarjeta: 14px;
+  --radius-boton: 10px;
+}
+
+@theme inline {
+  --color-alumno-fondo: var(--alumno-fondo);
+  --color-alumno-superficie: var(--alumno-superficie);
+  --color-alumno-superficie-hecha: var(--alumno-superficie-hecha);
+  --color-alumno-lateral: var(--alumno-lateral);
+  --color-alumno-primario: var(--alumno-primario);
+  --color-alumno-primario-hover: var(--alumno-primario-hover);
+  --color-alumno-acento: var(--alumno-acento);
+  --color-alumno-texto: var(--alumno-texto);
+  --color-alumno-texto-secundario: var(--alumno-texto-secundario);
+  --color-alumno-texto-suave: var(--alumno-texto-suave);
+  --color-alumno-texto-apagado: var(--alumno-texto-apagado);
+  --color-alumno-borde: var(--alumno-borde);
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
+}
+
+body {
+  color: var(--color-texto);
+}
+
+/* Foco siempre visible con teclado (RNF1.2) */
+:focus-visible {
+  outline: 3px solid var(--color-panel-primario);
+  outline-offset: 2px;
 }
