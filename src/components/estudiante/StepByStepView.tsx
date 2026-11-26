@@ -24,11 +24,11 @@ type ActivityStep = {
   audioUrl: string | null;
 };
 
-const FORMATS: { id: Format; label: string; icon: string }[] = [
-  { id: "pictograma", label: "Pictograma", icon: "▧" },
-  { id: "video", label: "Vídeo", icon: "▶" },
-  { id: "audio", label: "Audio", icon: "◖" },
-  { id: "literal", label: "Descripción literal", icon: "Aa" },
+const FORMATS: { id: Format; label: string }[] = [
+  { id: "pictograma", label: "Pictograma" },
+  { id: "video", label: "Vídeo" },
+  { id: "audio", label: "Audio" },
+  { id: "literal", label: "Descripción literal" },
 ];
 
 function formatTime(timestamp: number) {
@@ -100,12 +100,13 @@ function VideoPlaceholder({ src }: { src: string | null }) {
 
   return (
     <div className="flex aspect-video w-full max-w-[520px] flex-col items-center justify-center rounded-2xl bg-alumno-primario-hover px-6 text-center text-white">
-      <span
-        aria-hidden="true"
-        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-3xl text-alumno-primario"
-      >
-        ▶
-      </span>
+      <Image
+        alt="Pictograma de vídeo"
+        className="mb-4 h-16 w-16 rounded-full bg-white object-contain p-2"
+        height={64}
+        src="https://static.arasaac.org/pictograms/38207/38207_500.png"
+        width={64}
+      />
       <p className="text-lg font-bold">Vídeo no disponible</p>
       <p className="mt-2 text-sm text-white/75">
         Aún no se ha añadido un vídeo para este paso.
@@ -165,11 +166,11 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
         <div className="flex items-center gap-4 rounded-2xl border-2 border-alumno-borde bg-alumno-superficie p-4">
         <button
           aria-label={isSpeaking ? "Detener audio" : "Escuchar instrucción"}
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-alumno-primario text-2xl text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-alumno-primario px-2 text-center text-sm font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
           onClick={toggleSpeech}
           type="button"
         >
-          {isSpeaking ? "■" : "◖"}
+          {isSpeaking ? "Detener" : "Escuchar"}
         </button>
         <div aria-hidden="true" className="flex h-12 flex-1 items-center gap-1">
           {[18, 30, 40, 24, 35, 44, 26, 36, 20, 32, 16, 25].map(
@@ -446,7 +447,6 @@ export default function StepByStepView({
                     onClick={() => setFormat(item.id)}
                     type="button"
                   >
-                    <span aria-hidden="true">{item.icon}</span>
                     <span>{item.label}</span>
                     {isSelected && <span aria-hidden="true">✓</span>}
                   </button>

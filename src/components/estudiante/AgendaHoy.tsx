@@ -22,6 +22,79 @@ type Celebration = {
   next: Activity | null;
 };
 
+const fechaHoraMadrid = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Madrid",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+function parteNumerica(
+  parts: Intl.DateTimeFormatPart[],
+  type: Intl.DateTimeFormatPartTypes,
+) {
+  const value = parts.find((part) => part.type === type)?.value;
+  if (value === undefined) {
+    throw new Error(`No se pudo calcular la fecha local (${type})`);
+  }
+  return Number(value);
+}
+
+function inicioDiaMadrid(fecha: string) {
+  const [year, month, day] = fecha.split("-").map(Number);
+  if (
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    throw new Error(`La fecha no es válida: ${fecha}`);
+  }
+
+  const utcMidnight = Date.UTC(year, month - 1, day);
+  const parts = fechaHoraMadrid.formatToParts(new Date(utcMidnight));
+  const localAsUtc = Date.UTC(
+    parteNumerica(parts, "year"),
+    parteNumerica(parts, "month") - 1,
+    parteNumerica(parts, "day"),
+    parteNumerica(parts, "hour"),
+    parteNumerica(parts, "minute"),
+    parteNumerica(parts, "second"),
+  );
+  return utcMidnight - (localAsUtc - utcMidnight);
+}
+
+function cambiarDia(fecha: string, dias: number) {
+  const [year, month, day] = fecha.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`La fecha no es válida: ${fecha}`);
+  }
+  return new Date(Date.UTC(year, month - 1, day + dias))
+    .toISOString()
+    .slice(0, 10);
+}
+
+function formatDate(fecha: string) {
+  const [year, month, day] = fecha.split("-").map(Number);
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`La fecha no es válida: ${fecha}`);
+  }
+  const formatted = new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  return `${formatted.charAt(0).toLocaleUpperCase("es-ES")}${formatted.slice(1)}`;
+}
+
 function areMorningActivitiesComplete(activities: Activity[]) {
   const morningActivities = activities.filter(
     (activity) => activity.startTime < "14:00",
@@ -45,16 +118,20 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function AgendaHoy({
-  inicio,
-  fin,
+  fechaInicial,
   completedId,
 }: {
-  inicio: number;
-  fin: number;
+  fechaInicial: string;
   completedId: string | null;
 }) {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const [fecha, setFecha] = useState(fechaInicial);
+  const { inicio, fin } = useMemo(() => {
+    const inicio = inicioDiaMadrid(fecha);
+    const fechaSiguiente = cambiarDia(fecha, 1);
+    return { inicio, fin: inicioDiaMadrid(fechaSiguiente) };
+  }, [fecha]);
   const agenda = useQuery(
     api.realizaciones.miAgenda,
     isAuthenticated ? { inicio, fin } : "skip",
@@ -188,6 +265,49 @@ export default function AgendaHoy({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-3">
+        <button
+          aria-label="Ver el día anterior"
+          className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-alumno-borde bg-alumno-superficie text-alumno-primario transition hover:border-alumno-primario focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          onClick={() => setFecha((current) => cambiarDia(current, -1))}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <p aria-live="polite" className="text-center text-lg font-bold text-alumno-texto">
+          {formatDate(fecha)}
+        </p>
+        <button
+          aria-label="Ver el día siguiente"
+          className="flex h-12 w-12 items-center justify-center rounded-xl border-2 border-alumno-borde bg-alumno-superficie text-alumno-primario transition hover:border-alumno-primario focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          onClick={() => setFecha((current) => cambiarDia(current, 1))}
+          type="button"
+        >
+          <svg
+            aria-hidden="true"
+            className="h-6 w-6"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
       {period === "afternoon" && !morningActivitiesComplete && (
         <p
           className="mb-2 shrink-0 rounded-xl bg-alumno-acento px-4 py-2 text-center font-bold text-alumno-texto"
