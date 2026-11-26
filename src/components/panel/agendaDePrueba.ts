@@ -29,7 +29,8 @@ export type ActividadDeAgenda = {
   /** Hora programada, "HH:MM" en hora de Madrid. */
   inicio: string;
   fin: string;
-  imagen: Imagen;
+  /** null si la actividad apunta a una imagen que ya no existe. */
+  imagen: Imagen | null;
   numPasos: number;
   medios: MedioDePaso[];
   estado: EstadoRealizacion;

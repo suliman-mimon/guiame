@@ -86,5 +86,20 @@ export function epochEnMadrid(fecha: string, hora: string): number {
   return comoSiFueraUtc - (enMadrid - comoSiFueraUtc);
 }
 
+/** De 00:00 de un día de Madrid a 00:00 del siguiente, en ms (para las consultas). */
+export function rangoDelDia(fecha: string): { inicio: number; fin: number } {
+  return { inicio: epochEnMadrid(fecha, "00:00"), fin: epochEnMadrid(sumarDias(fecha, 1), "00:00") };
+}
+
+/** Milisegundos desde 1970 a "HH:MM" en hora de Madrid. */
+export function horaEnMadrid(ms: number): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(ms));
+}
+
 /** Las actividades de tarde empiezan a partir de las 14:00 (como en la app del alumno). */
 export const INICIO_TARDE = 14 * 60;

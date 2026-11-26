@@ -11,8 +11,12 @@
 import type * as accounts from "../accounts.js";
 import type * as actividades from "../actividades.js";
 import type * as auth from "../auth.js";
+import type * as demo from "../demo.js";
 import type * as http from "../http.js";
+import type * as imagenes from "../imagenes.js";
+import type * as lib_arasaac from "../lib/arasaac.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as panel from "../panel.js";
 import type * as realizaciones from "../realizaciones.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -27,8 +31,12 @@ declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   actividades: typeof actividades;
   auth: typeof auth;
+  demo: typeof demo;
   http: typeof http;
+  imagenes: typeof imagenes;
+  "lib/arasaac": typeof lib_arasaac;
   "lib/auth": typeof lib_auth;
+  panel: typeof panel;
   realizaciones: typeof realizaciones;
   seed: typeof seed;
   users: typeof users;

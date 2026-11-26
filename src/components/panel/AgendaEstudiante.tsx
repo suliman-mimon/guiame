@@ -58,15 +58,20 @@ function Estado({ actividad }: { actividad: ActividadDeAgenda }) {
 
 export default function AgendaEstudiante({
   estudiante,
-  agendaDeHoy,
+  fecha,
+  setFecha,
+  agenda,
   emocionDeHoy,
 }: {
   estudiante: EstudianteResumen;
-  agendaDeHoy: ActividadDeAgenda[];
+  /** Día que se está viendo, "YYYY-MM-DD". */
+  fecha: string;
+  setFecha: (fecha: string) => void;
+  /** Actividades de ese día; undefined mientras llegan del servidor. */
+  agenda: ActividadDeAgenda[] | undefined;
   emocionDeHoy: EstadoEmocional | null;
 }) {
   const hoy = hoyEnMadrid();
-  const [fecha, setFecha] = useState(hoy);
   const [franja, setFranja] = useState<"manana" | "tarde">(
     minutosAhoraEnMadrid() >= INICIO_TARDE ? "tarde" : "manana",
   );
@@ -75,9 +80,7 @@ export default function AgendaEstudiante({
   const iniciales = `${estudiante.nombre[0]}${estudiante.inicialApellido}`.toUpperCase();
   const esHoy = fecha === hoy;
 
-  // Datos de prueba: solo hay agenda para hoy. GM-16 devolverá la del día elegido.
-  const delDia = esHoy ? agendaDeHoy : [];
-  const visibles = delDia
+  const visibles = (agenda ?? [])
     .filter((a) =>
       franja === "manana" ? aMinutos(a.inicio) < INICIO_TARDE : aMinutos(a.inicio) >= INICIO_TARDE,
     )
@@ -111,12 +114,6 @@ export default function AgendaEstudiante({
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/panel/estudiantes/${estudiante.id}/ajustes`}
-            className="flex min-h-11 items-center rounded-boton border-2 border-panel-primario px-4 font-bold text-panel-primario transition-colors hover:bg-panel-primario-suave"
-          >
-            Ajustes de {estudiante.nombre}
-          </Link>
           <Link
             href={`/panel/actividades/nueva?estudiante=${estudiante.id}&fecha=${fecha}`}
             className="flex min-h-11 items-center gap-2 rounded-boton bg-panel-primario px-4 font-bold text-white transition-colors hover:bg-panel-primario-hover"
@@ -168,7 +165,11 @@ export default function AgendaEstudiante({
         </div>
       </div>
 
-      {visibles.length === 0 ? (
+      {agenda === undefined ? (
+        <p className="rounded-tarjeta border border-panel-borde bg-panel-superficie p-6 text-texto-suave" aria-live="polite">
+          Cargando la agenda…
+        </p>
+      ) : visibles.length === 0 ? (
         <p className="rounded-tarjeta border border-panel-borde bg-panel-superficie p-6 text-texto-suave">
           {nombreCorto} no tiene actividades {franja === "manana" ? "por la mañana" : "por la tarde"} este día.
         </p>
@@ -188,40 +189,32 @@ export default function AgendaEstudiante({
                 <br />
                 <span className="text-sm font-normal text-texto-suave">{horaCorta(a.fin)}</span>
               </p>
-              <Image
-                src={urlDeImagen(a.imagen)}
-                // Solo optimizamos las de ARASAAC (next.config.ts); las demás vienen
-                // del almacenamiento de Convex.
-                unoptimized={!a.imagen.arasaacId}
-                alt=""
-                width={48}
-                height={48}
-                className="h-12 w-12 shrink-0 rounded-boton bg-panel-fondo p-1"
-              />
+              {a.imagen ? (
+                <Image
+                  src={urlDeImagen(a.imagen)}
+                  // Solo optimizamos las de ARASAAC (next.config.ts); las demás vienen
+                  // del almacenamiento de Convex.
+                  unoptimized={!a.imagen.arasaacId}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 shrink-0 rounded-boton bg-panel-fondo p-1"
+                />
+              ) : (
+                <span aria-hidden="true" className="h-12 w-12 shrink-0 rounded-boton bg-panel-fondo" />
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-bold text-texto">{a.titulo}</p>
                 <p className="text-sm text-texto-suave">
                   {a.numPasos} {a.numPasos === 1 ? "paso" : "pasos"} ·{" "}
-                  {listaNatural(a.medios.map((m) => NOMBRE_MEDIO[m]))}
+                  {listaNatural([...new Set(a.medios)].map((m) => NOMBRE_MEDIO[m]))}
                 </p>
               </div>
               <Estado actividad={a} />
-              {a.estado !== "hecha" && (
-                <Link
-                  href={`/panel/actividades/nueva?editar=${a.id}`}
-                  className="flex min-h-11 items-center rounded-boton border border-panel-borde px-4 font-bold text-panel-primario hover:bg-panel-primario-suave"
-                >
-                  Editar<span className="sr-only"> {a.titulo}</span>
-                </Link>
-              )}
             </li>
           ))}
         </ol>
       )}
-
-      <p className="text-sm text-texto-suave">
-        Las actividades hechas no se pueden editar (RF2.2).
-      </p>
     </div>
   );
 }

@@ -2,43 +2,47 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import PasoDatos from "./PasoDatos";
 import PasoPasos from "./PasoPasos";
 import PasoParaQuien from "./PasoParaQuien";
 import SelectorPictograma from "./SelectorPictograma";
+import { CatalogoProvider } from "./catalogo";
 import {
   argumentosParaGuardar,
   buscarSolapamientos,
   validarDatos,
   validarPasos,
-  type ArgumentosGuardar,
   type BorradorActividad,
   type Errores,
+  type Ocupada,
 } from "./borrador";
-import { agendaDePrueba, type ActividadDeAgenda } from "../agendaDePrueba";
 import type { EstudianteResumen } from "../datosDePrueba";
-import { hoyEnMadrid, minutosAhoraEnMadrid } from "../fechas";
+import { horaEnMadrid, hoyEnMadrid, minutosAhoraEnMadrid, rangoDelDia } from "../fechas";
 
 // W4 · Asistente «Nueva actividad» en tres pasos: Datos (GM-23), Pasos (GM-25)
-// y Para quién con resumen (GM-24, GM-47).
-//
-// De momento guarda en local para poder probar el flujo. Al conectar GM-07
-// (Suliman), `guardarDePrueba` se sustituye por
-// `const crear = useMutation(api.actividades.crear)` y se le pasa lo que devuelve
-// `argumentosParaGuardar`; el servidor vuelve a comprobar los solapamientos
-// (RF2.6). `agendaDe` pasa a ser una consulta.
+// y Para quién con resumen (GM-24, GM-47), conectado a Convex:
+//   - el catálogo de pictogramas sale de imagenes:catalogo (RF2.4);
+//   - lo que ya tienen ese día los elegidos, de panel:ocupacion, para avisar de
+//     solapamientos antes de guardar (RF2.6);
+//   - guardar llama a actividades:crear y después a realizaciones:asignar
+//     (GM-07, Suliman), que vuelve a comprobar los solapamientos en el servidor.
 
 const PASOS = ["Datos", "Pasos", "Para quién"] as const;
 
-// TODO GM-24: sustituir por la mutación de GM-07.
-async function guardarDePrueba(argumentos: ArgumentosGuardar): Promise<void> {
-  void argumentos;
-  await new Promise((r) => setTimeout(r, 400));
-}
-
-function agendaDe(estudianteId: string, fecha: string): ActividadDeAgenda[] {
-  // Datos de prueba: solo Lucía tiene agenda, y solo hoy.
-  return estudianteId === "lucia" && fecha === hoyEnMadrid() ? agendaDePrueba : [];
+// En producción Convex no deja ver el texto de los errores del servidor, así
+// que el mensaje se elige por lo que pudo fallar.
+function mensajeDeError(error: unknown) {
+  const texto = error instanceof Error ? error.message : "";
+  if (texto.includes("solapa")) {
+    return "No se ha guardado: el horario se solapa con otra actividad de un estudiante. Cambia la hora y vuelve a intentarlo.";
+  }
+  if (texto.includes("anterior a la actual")) {
+    return "No se ha guardado: esa hora ya ha pasado. Elige una hora más tarde.";
+  }
+  return "No se ha podido guardar la actividad. Comprueba que el horario no choca con otra actividad y vuelve a intentarlo.";
 }
 
 export default function AsistenteNuevaActividad({
@@ -57,8 +61,29 @@ export default function AsistenteNuevaActividad({
   const [selector, setSelector] = useState<{ destino: "principal" | string } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+  const [errorGuardar, setErrorGuardar] = useState<string | null>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
   const primeraVez = useRef(true);
+
+  const catalogo = useQuery(api.imagenes.catalogo, {});
+  const crear = useMutation(api.actividades.crear);
+  const asignar = useMutation(api.realizaciones.asignar);
+  const ocupacion = useQuery(
+    api.panel.ocupacion,
+    borrador.fecha && borrador.estudiantes.length > 0
+      ? { estudianteIds: borrador.estudiantes, ...rangoDelDia(borrador.fecha) }
+      : "skip",
+  );
+
+  function agendaDe(estudianteId: string): Ocupada[] {
+    const delEstudiante = ocupacion?.find((o) => o.estudianteId === estudianteId);
+    return (delEstudiante?.realizaciones ?? []).map((r) => ({
+      id: r.id,
+      titulo: r.titulo,
+      inicio: horaEnMadrid(r.fInicioProgramada),
+      fin: horaEnMadrid(r.fFinProgramada),
+    }));
+  }
 
   useEffect(() => {
     if (primeraVez.current) {
@@ -74,8 +99,8 @@ export default function AsistenteNuevaActividad({
 
   const erroresDatos = validarDatos(borrador, hoy, minutosAhoraEnMadrid());
   const erroresPasos = validarPasos(borrador);
-  const solapamientos = buscarSolapamientos(borrador, (id, fecha) =>
-    agendaDe(id, fecha).filter((a) => a.id !== editandoId),
+  const solapamientos = buscarSolapamientos(borrador, (id) =>
+    agendaDe(id).filter((a) => a.id !== editandoId),
   );
   const erroresParaQuien: Errores =
     borrador.estudiantes.length === 0 ? { estudiantes: "Elige al menos un estudiante." } : {};
@@ -96,9 +121,34 @@ export default function AsistenteNuevaActividad({
     }
     if (solapamientos.length > 0) return;
     setGuardando(true);
-    await guardarDePrueba(argumentosParaGuardar(borrador));
-    setGuardando(false);
-    setGuardado(true);
+    setErrorGuardar(null);
+    try {
+      const args = argumentosParaGuardar(borrador);
+      const actividadId = await crear({
+        titulo: args.titulo,
+        descripcion: args.descripcion,
+        tipoActividad: args.tipoActividad,
+        imagenId: args.imagenId as Id<"imagenes">,
+        pasos: args.pasos.map((p) => ({
+          texto: p.texto,
+          tipoMedio: p.tipoMedio,
+          ...(p.imagenId ? { imagenId: p.imagenId as Id<"imagenes"> } : {}),
+        })),
+      });
+      await asignar({
+        actividadId,
+        asignaciones: args.estudianteIds.map((estudianteId) => ({
+          estudianteId: estudianteId as Id<"estudiantes">,
+          fInicioProgramada: args.fInicioProgramada,
+          fFinProgramada: args.fFinProgramada,
+        })),
+      });
+      setGuardado(true);
+    } catch (error) {
+      setErrorGuardar(mensajeDeError(error));
+    } finally {
+      setGuardando(false);
+    }
   }
 
   function elegirPictograma(imagenId: string) {
@@ -129,10 +179,6 @@ export default function AsistenteNuevaActividad({
         <p className="rounded-tarjeta border border-exito bg-exito-suave p-5 text-texto">
           «{borrador.titulo}» ya aparece en la agenda de {borrador.estudiantes.length}{" "}
           {borrador.estudiantes.length === 1 ? "estudiante" : "estudiantes"}.
-          <br />
-          <span className="text-sm text-texto-suave">
-            Versión de prueba: se guardará de verdad cuando se conecte con GM-07.
-          </span>
         </p>
         <div className="flex flex-wrap gap-3">
           {primero && (
@@ -155,6 +201,7 @@ export default function AsistenteNuevaActividad({
   }
 
   return (
+    <CatalogoProvider catalogo={catalogo ?? []}>
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <nav aria-label="Ruta" className="text-sm text-texto-suave">
         <Link href="/panel" className="underline underline-offset-2 hover:text-texto">
@@ -223,6 +270,12 @@ export default function AsistenteNuevaActividad({
         </p>
       )}
 
+      {errorGuardar && (
+        <p role="alert" className="rounded-boton border border-alerta p-3 font-bold text-alerta">
+          {errorGuardar}
+        </p>
+      )}
+
       <div className="flex flex-wrap justify-between gap-3">
         {paso === 0 ? (
           <Link
@@ -267,5 +320,6 @@ export default function AsistenteNuevaActividad({
         onCerrar={() => setSelector(null)}
       />
     </div>
+    </CatalogoProvider>
   );
 }

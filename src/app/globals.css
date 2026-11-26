@@ -29,6 +29,7 @@
   --alumno-texto-suave: #5e5c57;
   --alumno-texto-apagado: #6e6b65;
   --alumno-borde: #e3dccf;
+  --alumno-borde-campo: #8a8780; /* Figma: borde de los campos de formulario, 3,6:1 sobre blanco */
 }
 
 @theme {
@@ -43,6 +44,7 @@
   --color-panel-primario-hover: #1a4299; /* derivado */
   --color-panel-primario-suave: #e6edfa;
   --color-panel-borde: #e2dfd8;
+  --color-panel-borde-campo: #8a8780; /* campos de formulario: 3:1 como mínimo (WCAG 1.4.11) */
   --color-panel-pista: #efeeea;
 
   /* Texto, de Figma */
@@ -76,6 +78,7 @@
   --color-alumno-texto-suave: var(--alumno-texto-suave);
   --color-alumno-texto-apagado: var(--alumno-texto-apagado);
   --color-alumno-borde: var(--alumno-borde);
+  --color-alumno-borde-campo: var(--alumno-borde-campo);
 }
 
 html,
