@@ -14,6 +14,9 @@ export default async function HomePage() {
   if (user === null) {
     redirect("/login");
   }
+  if (user.roles?.includes("estudiante")) {
+    redirect("/hoy");
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">

@@ -1,3 +1,3 @@
 {
-  "buildCommand": "npx convex deploy --cmd 'npm run build' --preview-run seed:seedDemoData"
+  "buildCommand": "npx convex deploy --cmd 'npm run build' --preview-run demo:sembrarTodo"
 }

@@ -6,12 +6,25 @@ de Proyectos, Universidad de Granada, curso 2026-2027.
 
 ## Estado actual
 
-La rama principal incluye Convex Auth, la redirección por rol, la configuración
-visual, el esquema, el seed base y las operaciones de agenda y seguimiento.
-El panel profesional incluye pantallas con datos de prueba. Hoy del alumno
-(PR #16), el seed ampliado (PR #20) y las tareas propias (PR #24 y #25)
-se revisan por separado. Comprueba qué ramas incluye el entorno antes de
-ensayar el recorrido completo.
+Versión entregada al final del Sprint 2 (27 de noviembre de 2026). En `main`:
+
+- **Acceso**: login único con el diseño de Figma (GM-27) y redirección por
+  rol (GM-06): el alumnado va a `/hoy` y los profesionales a `/panel`.
+- **Panel del profesional**: «Mis estudiantes» con el progreso del día, qué
+  hace cada uno y los retrasos, con filtros (GM-15, GM-21, GM-26); la agenda
+  de cada estudiante en tiempo real (GM-16, GM-22); el asistente «Nueva
+  actividad» con pasos, pictogramas de ARASAAC y aviso de solapamientos
+  (GM-07, GM-23 a GM-25, GM-47); y los ajustes de paleta, letra y formatos
+  de cada alumno (GM-34 a GM-36).
+- **App del alumno**: «Hoy» con Empiezo y Termino, la vista paso a paso,
+  «¡Muy bien!» y «Mi semana», con la paleta y la letra que elige el tutor
+  (GM-28 a GM-32, GM-35).
+- **Datos de demostración** listos con dos comandos (ver más abajo).
+
+Queda para la iteración 3: el estado de ánimo del alumno (PR #30), sus
+tareas propias (PR #24 y #25), los permisos del alumno en Ajustes (PR #31,
+pendiente de revisión), editar una actividad desde el panel y subir vídeo o
+audio a los pasos (el servidor ya los admite: GM-11 y GM-12).
 
 La Propuesta Técnica y el Manual de Coordinación se mantienen en la entrega
 académica del equipo. El
@@ -119,37 +132,37 @@ npx convex run accounts:createTutor \
 
 ### Datos de demostración
 
-En un deployment de desarrollo vacío, ejecuta:
+En un deployment de desarrollo vacío, dos pasos, en este orden:
 
 ```sh
-npx convex run seed:seedDemoData
+npx convex run seed:seedDemoData   # una sola vez: cuentas, clase y emociones
+npx convex run demo:prepararDia    # antes de cada demo o ensayo
 ```
 
-El seed interno de la base crea una tutora, alumnado ficticio y actividades.
-Si estás probando GM-14, configura antes `GUIAME_DEMO_PASSWORD` en Convex
-con al menos 12 caracteres. Usa esa contraseña con
-`marta.ruiz@centro-demo.es` o con el usuario de uno de los seis alumnos
-(`lucia`, `daniel`, `aitana`, `hugo`, `sara`, `mateo`). Las 25 sesiones
-de GM-14 están fechadas del 23 al 27 de noviembre de 2026. Para comprobar
-W2 y W3 utiliza una rama con las consultas y la interfaz conectadas.
+- `seed:seedDemoData` crea una tutora, 4 estudiantes, una clase ("Aula 3")
+  con sus matrículas y el catálogo de 6 emociones. Solo se ejecuta una vez
+  por deployment, porque las cuentas no se pueden crear dos veces.
+- `demo:prepararDia` carga el catálogo de pictogramas de ARASAAC y deja la
+  agenda de hoy como la de un día real de cole. Hay actividades hechas, una
+  en curso, un retraso de Pablo en Logopedia y un hueco libre en la agenda
+  de Lucía para crear una actividad en directo. Las horas se calculan desde
+  el momento en que se ejecuta, así que hay que lanzarlo justo antes de la
+  demo. Se puede repetir: cancela lo que hubiera en las 12 horas de antes y
+  de después, y vuelve a crear el día.
 
-Si el checkout incluye `tests/panel.sh`, ejecútalo con `bash tests/panel.sh`.
-La prueba del seed de GM-14 se empaqueta y ejecuta así:
+Con `--prod` al final, los dos comandos van contra producción. Las previews
+de Vercel hacen los dos pasos solas (`demo:sembrarTodo`, con `--preview-run`
+en `vercel.json`), porque cada una nace con su propio deployment de Convex
+vacío.
 
-```sh
-bundle="$(mktemp --suffix=.cjs)"
-./node_modules/.bin/esbuild tests/seed.test.mjs --bundle --platform=node --outfile="$bundle"
-node "$bundle"
-rm -- "$bundle"
-```
+| Cuenta | Usuario | Contraseña |
+| --- | --- | --- |
+| Tutora | `marta.ruiz@centro-demo.es` | `Demo1234!` |
+| Estudiantes | `lucia`, `pablo`, `ana`, `javier` | `Demo1234!` |
 
-En la rama de GM-49, ejecuta `bash tests/tareas-alumno.sh`. Esa rama incluye
-`docs/gm-49-validacion.md` con el procedimiento de validación funcional.
-La configuración visual ya guarda `permiteCrearTareas`. La creación propia
-requiere además el modelo del PR #24 y la mutación y el formulario del #25.
-
-Estas pruebas ejercitan los handlers con una base en memoria. Para verificar
-sesión, escritura y reactividad, usa un deployment de desarrollo aparte.
+Las actividades y los estados emocionales son contenido de ejemplo
+provisional; se sustituyen cuando llegue el contenido real de Ignacio sin
+tocar la estructura del seed.
 
 ## Despliegue
 
@@ -168,25 +181,3 @@ El Pull Request explica los cambios, las pruebas y sus dependencias. Si depende
 de un PR abierto, usa la rama de ese PR como base hasta que se integre. Solicita
 revisión a Pablo y, para los cambios de backend, a Suliman. La integración en
 `main` se realiza desde GitHub después de la revisión.
-
-Antes de apilar un PR, comprueba si su base sigue activa y qué código llegó
-a `main`. El PR #20 conserva su base histórica y Pablo ha pedido dejarlo
-en borrador. Pablo indicó que #17 y #19 deben cerrarse sin fusionar y que
-sus ramas deben conservarse. Una futura recuperación de la agenda del
-tutor exige revisar las funciones que ya están en `main` y coordinar la
-integración con el equipo.
-
-GM-17 y GM-18 se revisan contra `main`. Pablo condicionó la aprobación
-anterior de GM-17 a la integración del PR #18, que conecta el panel
-profesional. La configuración visual y la redirección por rol llegaron a
-`main` mediante el PR #23.
-
-Hoy parte del PR #16. Daniele es responsable de GM-29, la conexión con
-`realizaciones.miAgenda`, `empezar` y `terminar`. La propuesta local
-`GM-29-conexion-convex-hoy` espera coordinación con él. Se comprueba con
-`bash tests/agenda-hoy.sh` en ese checkout.
-
-GM-49 queda para después de la demo. El esquema está congelado y Suliman
-es responsable de los cambios estructurales. Pablo pidió dejar el modelo
-(PR #24) en borrador. El PR #25 conserva la creación autorizada y el
-formulario para completar su montaje cuando se aprueben el modelo y GM-29.

@@ -89,12 +89,15 @@ export function validarPasos(b: BorradorActividad): Errores {
   return e;
 }
 
-export type Solapamiento = { estudianteId: string; actividad: ActividadDeAgenda };
+/** Lo que hace falta de una actividad ya asignada para ver si choca. */
+export type Ocupada = Pick<ActividadDeAgenda, "id" | "titulo" | "inicio" | "fin">;
+
+export type Solapamiento = { estudianteId: string; actividad: Ocupada };
 
 /** RF2.6: una actividad se solapa si comparte algún minuto con otra del mismo alumno ese día. */
 export function buscarSolapamientos(
   b: BorradorActividad,
-  agendaDe: (estudianteId: string, fecha: string) => ActividadDeAgenda[],
+  agendaDe: (estudianteId: string, fecha: string) => Ocupada[],
 ): Solapamiento[] {
   if (!b.fecha || !b.inicio || !b.fin) return [];
   const ini = aMinutos(b.inicio);

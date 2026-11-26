@@ -28,17 +28,16 @@ function estaActivo(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
-export default function PanelShell({
-  clase,
-  children,
-}: {
-  clase: string;
-  children: React.ReactNode;
-}) {
+export default function PanelShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { signOut } = useAuthActions();
   const usuario = useQuery(api.users.currentUser, {});
+  const clases = useQuery(api.panel.misClases, {});
+  const clase =
+    clases && clases.length > 0
+      ? new Intl.ListFormat("es", { type: "conjunction" }).format(clases)
+      : "";
 
   const nombre = usuario
     ? [usuario.name, usuario.apellidos].filter(Boolean).join(" ") || usuario.email || ""
@@ -102,7 +101,7 @@ export default function PanelShell({
             </span>
             <div className="min-w-0 leading-tight">
               <p className="truncate font-semibold text-texto">{nombre || " "}</p>
-              <p className="text-sm text-texto-suave">Tutor · {clase}</p>
+              <p className="text-sm text-texto-suave">Tutor{clase ? ` · ${clase}` : ""}</p>
             </div>
           </div>
           <button
