@@ -64,7 +64,7 @@ export default function ListaEstudiantes({ estudiantes }: { estudiantes: Estudia
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Por ejemplo: Lucía"
-            className="min-h-11 rounded-boton border border-panel-borde bg-white px-3"
+            className="min-h-11 rounded-boton border border-panel-borde-campo bg-white px-3"
           />
         </label>
 
@@ -74,7 +74,7 @@ export default function ListaEstudiantes({ estudiantes }: { estudiantes: Estudia
             <select
               value={clase}
               onChange={(e) => setClase(e.target.value)}
-              className="min-h-11 rounded-boton border border-panel-borde bg-white px-3"
+              className="min-h-11 rounded-boton border border-panel-borde-campo bg-white px-3"
             >
               <option value={TODAS}>Todas las clases</option>
               {clases.map((c) => (

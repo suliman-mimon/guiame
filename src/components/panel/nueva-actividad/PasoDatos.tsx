@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarImagen } from "./catalogo";
+import { useCatalogo } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import { TIPOS, type BorradorActividad, type Errores } from "./borrador";
 import { INICIO_TARDE, aMinutos } from "../fechas";
@@ -29,6 +29,7 @@ export default function PasoDatos({
   hoy: string;
   abrirSelector: () => void;
 }) {
+  const { buscarImagen } = useCatalogo();
   const pictograma = borrador.imagenId ? buscarImagen(borrador.imagenId) : undefined;
   const parteDelDia =
     borrador.inicio && aMinutos(borrador.inicio) >= INICIO_TARDE ? "de la tarde" : "de la mañana";
@@ -47,7 +48,7 @@ export default function PasoDatos({
           placeholder="Por ejemplo: Taller de cocina"
           aria-invalid={Boolean(errores.titulo)}
           aria-describedby={errores.titulo ? "error-titulo" : undefined}
-          className="min-h-11 rounded-boton border border-panel-borde px-3"
+          className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
         />
         <MensajeError id="error-titulo" texto={errores.titulo} />
       </div>
@@ -123,7 +124,7 @@ export default function PasoDatos({
               onChange={(e) => cambiar({ fecha: e.target.value })}
               aria-invalid={Boolean(errores.fecha)}
               aria-describedby={errores.fecha ? "error-fecha" : undefined}
-              className="min-h-11 rounded-boton border border-panel-borde px-3"
+              className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
             />
             <MensajeError id="error-fecha" texto={errores.fecha} />
           </div>
@@ -138,7 +139,7 @@ export default function PasoDatos({
               onChange={(e) => cambiar({ inicio: e.target.value })}
               aria-invalid={Boolean(errores.inicio)}
               aria-describedby={errores.inicio ? "error-inicio" : undefined}
-              className="min-h-11 rounded-boton border border-panel-borde px-3"
+              className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
             />
             <MensajeError id="error-inicio" texto={errores.inicio} />
           </div>
@@ -153,7 +154,7 @@ export default function PasoDatos({
               onChange={(e) => cambiar({ fin: e.target.value })}
               aria-invalid={Boolean(errores.fin)}
               aria-describedby={errores.fin ? "error-fin" : undefined}
-              className="min-h-11 rounded-boton border border-panel-borde px-3"
+              className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
             />
             <MensajeError id="error-fin" texto={errores.fin} />
           </div>
@@ -175,7 +176,7 @@ export default function PasoDatos({
           onChange={(e) => cambiar({ descripcion: e.target.value })}
           maxLength={500}
           rows={3}
-          className="rounded-boton border border-panel-borde px-3 py-2"
+          className="rounded-boton border border-panel-borde-campo px-3 py-2"
         />
       </div>
     </div>

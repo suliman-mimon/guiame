@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarImagen } from "./catalogo";
+import { useCatalogo } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import { nuevoPaso, type BorradorActividad, type Errores, type PasoBorrador } from "./borrador";
 import type { MedioDePaso } from "../agendaDePrueba";
@@ -10,11 +10,18 @@ import { IconoMas } from "../Iconos";
 // tiene su texto y UN formato, elegido con un botón propio (pictograma, vídeo o
 // audio), como pidió la profesora. Los archivos de vídeo y audio se suben con GM-12.
 
-const MEDIOS: { valor: MedioDePaso; texto: string }[] = [
-  { valor: "pictograma", texto: "Pictograma" },
-  { valor: "video", texto: "Vídeo" },
-  { valor: "audio", texto: "Audio" },
-];
+// Vídeo y audio necesitan subir el archivo a Convex (GM-12, P2), que aún no
+// está. Hasta entonces cada paso lleva su pictograma y no salen los botones de
+// formato, para no ofrecer algo que no se guarda (riesgo R02).
+const SUBIDA_DE_ARCHIVOS = false;
+
+const MEDIOS: { valor: MedioDePaso; texto: string }[] = (
+  [
+    { valor: "pictograma", texto: "Pictograma" },
+    { valor: "video", texto: "Vídeo" },
+    { valor: "audio", texto: "Audio" },
+  ] as const
+).filter((m) => SUBIDA_DE_ARCHIVOS || m.valor === "pictograma");
 
 const ACEPTA: Record<Exclude<MedioDePaso, "pictograma">, string> = {
   video: "video/mp4",
@@ -38,6 +45,7 @@ export default function PasoPasos({
   errores: Errores;
   abrirSelectorDePaso: (pasoId: string) => void;
 }) {
+  const { buscarImagen } = useCatalogo();
   const pasos = borrador.pasos;
 
   function cambiarPaso(id: string, parcial: Partial<PasoBorrador>) {
@@ -88,11 +96,12 @@ export default function PasoPasos({
                     onChange={(e) => cambiarPaso(paso.id, { texto: e.target.value })}
                     placeholder="Por ejemplo: Lávate las manos"
                     aria-invalid={Boolean(errorTexto)}
-                    className="min-h-11 rounded-boton border border-panel-borde px-3"
+                    className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
                   />
                   {errorTexto && <p className="text-sm font-bold text-alerta">{errorTexto}</p>}
                 </div>
 
+                {MEDIOS.length > 1 && (
                 <div role="group" aria-label={`Formato del paso ${numero}`} className="flex flex-wrap gap-2">
                   {MEDIOS.map((m) => (
                     <button
@@ -112,6 +121,7 @@ export default function PasoPasos({
                     </button>
                   ))}
                 </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3 rounded-boton bg-panel-fondo p-3">
                   {paso.medio === "pictograma" ? (

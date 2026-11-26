@@ -1,6 +1,6 @@
 "use client";
 
-import { buscarImagen } from "./catalogo";
+import { useCatalogo } from "./catalogo";
 import { MiniaturaPictograma } from "./SelectorPictograma";
 import {
   TIPOS,
@@ -34,6 +34,7 @@ export default function PasoParaQuien({
   estudiantes: EstudianteResumen[];
   solapamientos: Solapamiento[];
 }) {
+  const { buscarImagen } = useCatalogo();
   const elegidos = new Set(borrador.estudiantes);
   const conChoque = new Set(solapamientos.map((s) => s.estudianteId)).size;
   const todos = estudiantes.length > 0 && estudiantes.every((e) => elegidos.has(e.id));

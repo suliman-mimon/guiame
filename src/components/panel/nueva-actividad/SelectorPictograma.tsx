@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import { urlDeImagen, type Imagen } from "../pictogramasDePrueba";
-import { catalogo } from "./catalogo";
+import { useCatalogo } from "./catalogo";
 
 // Elegir un pictograma del catálogo del sistema (RF2.4: nada de subir imágenes
 // propias). Diálogo nativo: se cierra con Esc y mantiene el foco dentro.
@@ -44,6 +44,7 @@ export default function SelectorPictograma({
   onElegir: (imagenId: string) => void;
   onCerrar: () => void;
 }) {
+  const { catalogo } = useCatalogo();
   const dialogo = useRef<HTMLDialogElement>(null);
   const buscador = useRef<HTMLInputElement>(null);
   const [busqueda, setBusqueda] = useState("");
@@ -103,7 +104,7 @@ export default function SelectorPictograma({
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Por ejemplo: comedor, música, lavarse"
-            className="min-h-11 rounded-boton border border-panel-borde px-3"
+            className="min-h-11 rounded-boton border border-panel-borde-campo px-3"
           />
         </label>
         <p className="text-sm text-texto-suave" aria-live="polite">
