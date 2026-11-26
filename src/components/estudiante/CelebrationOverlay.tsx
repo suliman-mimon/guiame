@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useRef } from "react";
+import { api } from "convex/_generated/api";
 
 type CelebrationOverlayProps = {
   completionText: string;
@@ -19,8 +22,16 @@ export default function CelebrationOverlay({
   onDismiss,
   onStartNext,
 }: CelebrationOverlayProps) {
+  const { isAuthenticated } = useConvexAuth();
+  const config = useQuery(
+    api.configuracionesVisuales.miConfiguracion,
+    isAuthenticated ? {} : "skip",
+  );
+  const permiteAnimo = config?.permiteDecirComoSeSiente ?? false;
+
   const startNextButtonRef = useRef<HTMLButtonElement>(null);
   const returnButtonRef = useRef<HTMLButtonElement>(null);
+  const animoLinkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     returnButtonRef.current?.focus();
@@ -29,24 +40,25 @@ export default function CelebrationOverlay({
       if (event.key === "Escape") {
         onDismiss();
       } else if (event.key === "Tab") {
-        const focusableButtons = [
+        const focusableElements = [
           startNextButtonRef.current,
           returnButtonRef.current,
-        ].filter((button): button is HTMLButtonElement => button !== null);
-        const currentIndex = focusableButtons.findIndex(
-          (button) => button === document.activeElement,
+          animoLinkRef.current,
+        ].filter((element): element is HTMLButtonElement | HTMLAnchorElement => element !== null,);
+        const currentIndex = focusableElements.findIndex(
+          (element) => element === document.activeElement,
         );
         const direction = event.shiftKey ? -1 : 1;
         const nextIndex =
           currentIndex === -1
             ? direction === 1
               ? 0
-              : focusableButtons.length - 1
-            : (currentIndex + direction + focusableButtons.length) %
-              focusableButtons.length;
+              : focusableElements.length - 1
+            : (currentIndex + direction + focusableElements.length) %
+              focusableElements.length;
 
         event.preventDefault();
-        focusableButtons[nextIndex]?.focus();
+        focusableElements[nextIndex]?.focus();
       }
     }
 
@@ -142,27 +154,52 @@ export default function CelebrationOverlay({
           </p>
         )}
 
-        <button
-          className="mt-6 inline-flex min-h-16 items-center gap-3 rounded-2xl bg-alumno-primario px-8 text-xl font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
-          onClick={onDismiss}
-          ref={returnButtonRef}
-          type="button"
-        >
-          <svg
-            aria-hidden="true"
-            className="h-6 w-6"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <button
+            className="inline-flex min-h-16 items-center gap-3 rounded-2xl bg-alumno-primario px-8 text-xl font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+            onClick={onDismiss}
+            ref={returnButtonRef}
+            type="button"
           >
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
-          </svg>
-          Volver a hoy
-        </button>
+            <svg
+              aria-hidden="true"
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+            </svg>
+            Volver a hoy
+          </button>
+
+          {permiteAnimo && (
+            <Link
+              className="inline-flex min-h-16 items-center gap-3 rounded-2xl border-2 border-alumno-primario bg-alumno-superficie px-7 text-xl font-bold text-alumno-primario transition hover:bg-alumno-superficie-hecha focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+              href="/hoy/animo"
+              ref={animoLinkRef}
+            >
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
+              </svg>
+              ¿Cómo me siento?
+            </Link>
+          )}
+        </div>
       </section>
     </div>
   );
