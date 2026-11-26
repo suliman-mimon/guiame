@@ -29,6 +29,119 @@
   --alumno-texto-suave: #5e5c57;
   --alumno-texto-apagado: #6e6b65;
   --alumno-borde: #e3dccf;
+  --alumno-sobre-primario: #ffffff; /* texto e iconos encima de primario */
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #8a8377; /* bordes de campos y controles: ≥3:1 */
+}
+
+/*
+ * GM-34 · Paletas del alumno (RF4.1) y escalas de letra (RF4.2).
+ *
+ * Los nombres coinciden con configuracionesVisuales.paletaColor y
+ * configuracionesVisuales.escalaLetra (convex/schema.ts). El TemaProvider
+ * (GM-35) pone `data-paleta` en el contenedor de la app del alumno y
+ * `data-letra` en <html>; los componentes no cambian, solo las variables.
+ *
+ * Colores de fondo, tarjetas, primario y texto: de Figma, pantalla
+ * «Mis colores». Los marcados «derivado» se han calculado a partir de ellos.
+ *
+ * Contraste WCAG 2.1 (texto sobre fondo, tarjetas y lateral; peor caso):
+ *   crema 4.6:1 · alto_contraste 10.0:1 · azul_calma 5.1:1 · noche 5.6:1
+ * Todas cumplen AA (4.5:1). Texto sobre primario: 7.7 · 14.9 · 7.2 · 8.5.
+ * Texto sobre acento: 8.5 · 14.9 · 7.3 · 8.5. Bordes de campos (WCAG 1.4.11,
+ * mínimo 3:1 sobre fondo y tarjetas): 3.4 · 7.4 · 3.2 · 3.7. `--alumno-borde`
+ * queda para separadores decorativos, que no necesitan 3:1.
+ */
+
+/* «Crema» es la de por defecto (:root); se repite para poder volver a ella. */
+[data-paleta="crema"] {
+  --alumno-fondo: #f8f4ec;
+  --alumno-superficie: #fffdf8;
+  --alumno-superficie-hecha: #fbf8f1;
+  --alumno-lateral: #f3eee3;
+  --alumno-primario: #1f5c58;
+  --alumno-primario-hover: #184a47; /* derivado */
+  --alumno-acento: #f2b643;
+  --alumno-texto: #1f2626;
+  --alumno-texto-secundario: #2b3a38;
+  --alumno-texto-suave: #5e5c57;
+  --alumno-texto-apagado: #6e6b65;
+  --alumno-borde: #e3dccf;
+  --alumno-sobre-primario: #ffffff;
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #8a8377; /* bordes de campos y controles: ≥3:1 */
+}
+
+/* «Alto contraste»: negro y amarillo */
+[data-paleta="alto_contraste"] {
+  --alumno-fondo: #000000;
+  --alumno-superficie: #121212;
+  --alumno-superficie-hecha: #1a1a1a; /* derivado */
+  --alumno-lateral: #0a0a0a; /* derivado */
+  --alumno-primario: #ffd60a;
+  --alumno-primario-hover: #ffe24d; /* derivado */
+  --alumno-acento: #ffd60a;
+  --alumno-texto: #ffffff;
+  --alumno-texto-secundario: #f2f2f2; /* derivado */
+  --alumno-texto-suave: #dadada; /* derivado */
+  --alumno-texto-apagado: #c4c4c4; /* derivado */
+  --alumno-borde: #8a8a8a; /* derivado */
+  --alumno-sobre-primario: #000000;
+  --alumno-sobre-acento: #000000; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #a3a3a3; /* bordes de campos y controles: ≥3:1 */
+}
+
+/* «Azul calma»: azules suaves */
+[data-paleta="azul_calma"] {
+  --alumno-fondo: #eaf2f7;
+  --alumno-superficie: #ffffff;
+  --alumno-superficie-hecha: #f4f8fb; /* derivado */
+  --alumno-lateral: #deebf4;
+  --alumno-primario: #1d5c86;
+  --alumno-primario-hover: #174a6c; /* derivado */
+  --alumno-acento: #f2b643; /* derivado */
+  --alumno-texto: #12324a;
+  --alumno-texto-secundario: #1f4058; /* derivado */
+  --alumno-texto-suave: #3f5a70; /* derivado */
+  --alumno-texto-apagado: #4a6479; /* derivado */
+  --alumno-borde: #c6d8e6; /* derivado */
+  --alumno-sobre-primario: #ffffff;
+  --alumno-sobre-acento: #12324a; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #6b8aa3; /* bordes de campos y controles: ≥3:1 */
+}
+
+/* «Noche»: fondo oscuro, menos brillo */
+[data-paleta="noche"] {
+  --alumno-fondo: #1e2624;
+  --alumno-superficie: #2a3432;
+  --alumno-superficie-hecha: #252e2c; /* derivado */
+  --alumno-lateral: #1a211f; /* derivado */
+  --alumno-primario: #f2b643;
+  --alumno-primario-hover: #f5c565; /* derivado */
+  --alumno-acento: #f2b643;
+  --alumno-texto: #f5f1e8;
+  --alumno-texto-secundario: #e2ddd2; /* derivado */
+  --alumno-texto-suave: #c4beb2; /* derivado */
+  --alumno-texto-apagado: #b0aa9e; /* derivado */
+  --alumno-borde: #3a4644;
+  --alumno-sobre-primario: #1f2626;
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #7d8c89; /* bordes de campos y controles: ≥3:1 */
+}
+
+/*
+ * Escalas de letra (Figma: 100 %, 125 %, 150 %). Van en <html> porque las
+ * clases de Tailwind (text-lg, p-4…) usan rem, que se mide desde <html>:
+ * así crece todo a la vez, texto y espacios, sin tocar los componentes.
+ */
+html[data-letra="normal"] {
+  font-size: 100%;
+}
+html[data-letra="grande"] {
+  font-size: 125%;
+}
+html[data-letra="muy_grande"] {
+  font-size: 150%;
 }
 
 @theme {
@@ -76,6 +189,9 @@
   --color-alumno-texto-suave: var(--alumno-texto-suave);
   --color-alumno-texto-apagado: var(--alumno-texto-apagado);
   --color-alumno-borde: var(--alumno-borde);
+  --color-alumno-sobre-primario: var(--alumno-sobre-primario);
+  --color-alumno-sobre-acento: var(--alumno-sobre-acento);
+  --color-alumno-borde-campo: var(--alumno-borde-campo);
 }
 
 html,
