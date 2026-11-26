@@ -129,11 +129,11 @@ export default function AsistenteNuevaActividad({
         descripcion: args.descripcion,
         tipoActividad: args.tipoActividad,
         imagenId: args.imagenId as Id<"imagenes">,
-        pasos: args.pasos.map((p) => ({
-          texto: p.texto,
-          tipoMedio: p.tipoMedio,
-          ...(p.imagenId ? { imagenId: p.imagenId as Id<"imagenes"> } : {}),
-        })),
+        // Cada paso lleva siempre su pictograma (HU-03); validarPasos ya lo exige.
+        pasos: args.pasos.map((p) => {
+          if (!p.imagenId) throw new Error("Falta el pictograma de un paso");
+          return { texto: p.texto, tipoMedio: p.tipoMedio, imagenId: p.imagenId as Id<"imagenes"> };
+        }),
       });
       await asignar({
         actividadId,

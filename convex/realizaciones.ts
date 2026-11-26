@@ -13,9 +13,15 @@ import {
 // un estudiante, para comprobar solapamientos de horario (RF2.6). Se usa el
 // índice by_estudiante_and_inicio para no barrer la tabla entera; el
 // conjunto resultante está acotado por estudiante, igual que listarAgenda.
+//
+// `excluirRealizacionId` lo usa reprogramar (RF2.2/RF2.6): "al modificar un
+// horario, no se comparará consigo mismo", así que la propia realización
+// que se está reprogramando se descarta del conjunto antes de comparar.
+// asignar nunca lo pasa, porque siempre crea realizaciones nuevas.
 async function cargarHorarioActivoDelEstudiante(
   ctx: MutationCtx,
   estudianteId: Id<"estudiantes">,
+  excluirRealizacionId?: Id<"realizaciones">,
 ): Promise<Array<{ fInicioProgramada: number; fFinProgramada: number; titulo: string }>> {
   const realizaciones = await ctx.db
     .query("realizaciones")
@@ -29,6 +35,9 @@ async function cargarHorarioActivoDelEstudiante(
   }> = [];
   for (const realizacion of realizaciones) {
     if (realizacion.cancelada) continue;
+    if (excluirRealizacionId !== undefined && realizacion._id === excluirRealizacionId) {
+      continue;
+    }
     const actividad = await ctx.db.get("actividades", realizacion.actividadId);
     if (actividad === null || actividad.cancelada) continue;
     horario.push({
@@ -214,6 +223,110 @@ export const cancelar = mutation({
       }
     }
 
+    return null;
+  },
+});
+
+// RF2.2 / RF2.6: reprogramar el horario de una realización ya asignada
+// (parte de "modificar actividad": el horario de cada estudiante se cambia
+// en su asignación, no en la plantilla). Misma autorización que
+// asignar/cancelar/modificar: solo quien creó la actividad, o el
+// administrador. Se rechaza sobre una realización o actividad cancelada, o
+// ya completada (hFinReal), por la misma razón que modificar rechaza
+// actividades ya completadas: el horario de algo que ya ha pasado no
+// debería poder tocarse. El solapamiento (RF2.6) se comprueba excluyendo
+// esta misma realización del horario del estudiante, que es la diferencia
+// explícita de este caso frente a asignar (que siempre crea filas nuevas).
+export const reprogramar = mutation({
+  args: {
+    realizacionId: v.id("realizaciones"),
+    fInicioProgramada: v.number(),
+    fFinProgramada: v.number(),
+    duracionEstudiante: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = await requireTutorOrAdmin(ctx);
+
+    const realizacion = await ctx.db.get("realizaciones", args.realizacionId);
+    if (realizacion === null) {
+      throw new Error("La realización no existe");
+    }
+
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null) {
+      throw new Error("La actividad no existe");
+    }
+    if (actividad.creadoPor !== current.userId && !current.esAdministrador) {
+      throw new Error(
+        "No autorizado: solo quien creó la actividad o el administrador puede reprogramarla",
+      );
+    }
+    // Mismo nivel de comprobación que asignar/cancelar: además de ser
+    // quien creó la actividad, el tutor debe poder ver a este estudiante
+    // en concreto (vínculo directo o supervisión de su clase).
+    await requireVeAlEstudianteOrAdmin(ctx, realizacion.estudianteId);
+
+    if (realizacion.cancelada || actividad.cancelada) {
+      throw new Error("No se puede reprogramar una actividad cancelada");
+    }
+    if (realizacion.hFinReal !== undefined) {
+      throw new Error(
+        "No se puede reprogramar una actividad que ya se ha completado",
+      );
+    }
+
+    if (
+      !Number.isFinite(args.fInicioProgramada) ||
+      !Number.isFinite(args.fFinProgramada)
+    ) {
+      throw new Error("La fecha y hora de inicio y fin deben ser válidas");
+    }
+    const ahora = Date.now();
+    if (args.fInicioProgramada < ahora) {
+      throw new Error(
+        "No se puede reprogramar una actividad con una fecha anterior a la actual",
+      );
+    }
+    if (args.fFinProgramada <= args.fInicioProgramada) {
+      throw new Error("La hora de fin debe ser posterior a la hora de inicio");
+    }
+    if (
+      args.duracionEstudiante !== undefined &&
+      (!Number.isFinite(args.duracionEstudiante) || args.duracionEstudiante <= 0)
+    ) {
+      throw new Error("La duración del estudiante debe ser un número positivo");
+    }
+
+    const horario = await cargarHorarioActivoDelEstudiante(
+      ctx,
+      realizacion.estudianteId,
+      args.realizacionId,
+    );
+    const nuevoHorario = {
+      fInicioProgramada: args.fInicioProgramada,
+      fFinProgramada: args.fFinProgramada,
+    };
+    const conflicto = horario.find((existente) => seSolapan(existente, nuevoHorario));
+    if (conflicto !== undefined) {
+      throw new Error(
+        `No se puede reprogramar: el horario se solapa con "${conflicto.titulo}" en la agenda de este estudiante. Corrige el horario e inténtalo de nuevo.`,
+      );
+    }
+
+    const cambios: {
+      fInicioProgramada: number;
+      fFinProgramada: number;
+      duracionEstudiante?: number;
+    } = {
+      fInicioProgramada: args.fInicioProgramada,
+      fFinProgramada: args.fFinProgramada,
+    };
+    if (args.duracionEstudiante !== undefined) {
+      cambios.duracionEstudiante = args.duracionEstudiante;
+    }
+
+    await ctx.db.patch("realizaciones", args.realizacionId, cambios);
     return null;
   },
 });
