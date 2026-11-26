@@ -99,13 +99,28 @@ personal.
 
 ### Datos de demo
 
-`npx convex run seed:seedDemoData` crea una tutora, 4 estudiantes, una clase
-("Aula 3") con sus matrículas, el catálogo de 6 emociones y 4 actividades
-con pictograma, pasos y una realización de ejemplo por estudiante para hoy
-(una completada, una en curso, el resto pendientes). Así se puede revisar
-el panel y la vista del estudiante sin dar de alta nada a mano. Cada
-preview de Vercel la ejecuta sola (`--preview-run` en `vercel.json`),
-porque nace con su propio deployment de Convex vacío.
+Dos pasos, en este orden:
+
+```sh
+npx convex run seed:seedDemoData   # una sola vez: cuentas, clase y emociones
+npx convex run demo:prepararDia    # antes de cada demo o ensayo
+```
+
+- `seed:seedDemoData` crea una tutora, 4 estudiantes, una clase ("Aula 3")
+  con sus matrículas y el catálogo de 6 emociones. Solo se ejecuta una vez
+  por deployment, porque las cuentas no se pueden crear dos veces.
+- `demo:prepararDia` carga el catálogo de pictogramas de ARASAAC y deja la
+  agenda de hoy como la de un día real de cole. Hay actividades hechas, una
+  en curso, un retraso de Pablo en Logopedia y un hueco libre en la agenda
+  de Lucía para crear una actividad en directo. Las horas se calculan desde
+  el momento en que se ejecuta, así que hay que lanzarlo justo antes de la
+  demo. Se puede repetir: cancela lo que hubiera en las 12 horas de antes y
+  de después, y vuelve a crear el día.
+
+Con `--prod` al final, los dos comandos van contra producción. Las previews
+de Vercel hacen los dos pasos solas (`demo:sembrarTodo`, con `--preview-run`
+en `vercel.json`), porque cada una nace con su propio deployment de Convex
+vacío.
 
 | Cuenta | Usuario | Contraseña |
 | --- | --- | --- |
