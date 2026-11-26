@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalMutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { requireTutorOrAdmin } from "./lib/auth";
@@ -36,6 +37,31 @@ export const catalogo = query({
       });
     }
     return resultado.sort((a, b) => a.textoAlternativo.localeCompare(b.textoAlternativo, "es"));
+  },
+});
+
+// Las imágenes que pide una pantalla (pictogramas de actividades y pasos), para
+// cualquiera con sesión: el alumno las necesita en «Hoy» y en el paso a paso.
+export const porIds = query({
+  args: { ids: v.array(v.id("imagenes")) },
+  returns: v.array(imagenValidator),
+  handler: async (ctx, { ids }) => {
+    if ((await getAuthUserId(ctx)) === null) {
+      throw new Error("No autorizado: inicia sesión");
+    }
+    if (ids.length > 200) throw new Error("Demasiadas imágenes en una sola consulta");
+    const resultado = [];
+    for (const id of new Set(ids)) {
+      const imagen = await ctx.db.get("imagenes", id);
+      if (imagen === null) continue;
+      resultado.push({
+        _id: imagen._id,
+        textoAlternativo: imagen.textoAlternativo,
+        ubicacionArchivo: imagen.ubicacionArchivo,
+        arasaacId: imagen.arasaacId,
+      });
+    }
+    return resultado;
   },
 });
 
