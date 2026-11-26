@@ -11,16 +11,6 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
     return;
   }
 
-  const isDevelopmentPreview =
-    process.env.NODE_ENV === "development" &&
-    process.env.GUIAME_HOY_PREVIEW === "true" &&
-    (request.nextUrl.pathname === "/" ||
-      request.nextUrl.pathname === "/hoy" ||
-      request.nextUrl.pathname.startsWith("/hoy/"));
-  if (isDevelopmentPreview) {
-    return;
-  }
-
   if (!(await convexAuth.isAuthenticated())) {
     return nextjsMiddlewareRedirect(request, "/login");
   }

@@ -101,6 +101,10 @@ export default defineSchema({
       v.literal("comedor"),
       v.literal("menu_mensual"),
       v.literal("guia_de_visita"),
+      v.literal("academica"),
+      v.literal("profesional"),
+      v.literal("familiar"),
+      v.literal("del_estudiante"),
     ),
     duracion: v.optional(v.number()), // minutos, si siempre dura lo mismo
     imagenId: v.id("imagenes"),
@@ -113,7 +117,15 @@ export default defineSchema({
     actividadId: v.id("actividades"),
     orden: v.number(),
     texto: v.string(),
+    tipoMedio: v.optional(
+      v.union(
+        v.literal("pictograma"),
+        v.literal("video"),
+        v.literal("audio"),
+      ),
+    ),
     imagenId: v.optional(v.id("imagenes")),
+    archivoId: v.optional(v.id("_storage")),
   }).index("by_actividad_and_orden", ["actividadId", "orden"]),
 
   // RI2.2. Información de realización: relación "Realiza" entre
@@ -128,6 +140,7 @@ export default defineSchema({
     fFinProgramada: v.number(),
     hInicioReal: v.optional(v.number()),
     hFinReal: v.optional(v.number()),
+    pasoActual: v.optional(v.number()),
     duracionEstudiante: v.optional(v.number()), // minutos
     cancelada: v.boolean(),
     calificacion: v.optional(v.string()),

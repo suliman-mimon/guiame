@@ -1,12 +1,26 @@
 import Link from "next/link";
 import AgendaHoy from "@/components/estudiante/AgendaHoy";
 
-export default function HoyPage() {
+type HoyPageProps = {
+  searchParams: Promise<{ completed?: string | string[] }>;
+};
+
+export default async function HoyPage({ searchParams }: HoyPageProps) {
+  const { completed } = await searchParams;
+  const ahora = new Date();
   const formattedDate = new Intl.DateTimeFormat("es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long",
-  }).format(new Date());
+    timeZone: "Europe/Madrid",
+  }).format(ahora);
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Europe/Madrid",
+  }).formatToParts(ahora);
+  const fecha = `${dateParts.find((part) => part.type === "year")?.value}-${dateParts.find((part) => part.type === "month")?.value}-${dateParts.find((part) => part.type === "day")?.value}`;
   const today = `${formattedDate.charAt(0).toLocaleUpperCase("es-ES")}${formattedDate
     .slice(1)
     .replace(",", "")}`;
@@ -34,7 +48,10 @@ export default function HoyPage() {
         </Link>
       </header>
 
-      <AgendaHoy />
+      <AgendaHoy
+        fecha={fecha}
+        completedId={typeof completed === "string" ? completed : null}
+      />
     </main>
   );
 }

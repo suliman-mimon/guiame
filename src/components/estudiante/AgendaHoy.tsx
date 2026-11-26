@@ -1,18 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "convex/_generated/api";
+import type { Id } from "convex/_generated/dataModel";
 import CelebrationOverlay from "@/components/estudiante/CelebrationOverlay";
 
-type ActivityStatus = "pending" | "in_progress" | "completed";
 type Period = "morning" | "afternoon";
 
 type Activity = {
-  id: string;
+  id: Id<"realizaciones">;
   startTime: string;
   title: string;
   completionText: string;
-  pictogram: string;
-  status: ActivityStatus;
+  image: ActivityImage | null;
+  stepCount: number;
+  currentStep: number;
+  status: "pending" | "in_progress" | "completed";
+};
+
+type ActivityImage = {
+  ubicacionArchivo: string;
+  textoAlternativo: string;
+  arasaacId: string | null;
 };
 
 type Celebration = {
@@ -20,76 +32,74 @@ type Celebration = {
   next: Activity | null;
 };
 
-const INITIAL_ACTIVITIES: Activity[] = [
-  {
-    id: "entrar-clase",
-    startTime: "09:00",
-    title: "Entrar a clase",
-    completionText: "de entrar a clase",
-    pictogram: "📋",
-    status: "pending",
-  },
-  {
-    id: "descanso",
-    startTime: "11:00",
-    title: "Descanso",
-    completionText: "el descanso",
-    pictogram: "🛋️",
-    status: "pending",
-  },
-  {
-    id: "taller-cocina",
-    startTime: "11:30",
-    title: "Taller de cocina",
-    completionText: "el taller de cocina",
-    pictogram: "🍲",
-    status: "pending",
-  },
-  {
-    id: "comida",
-    startTime: "14:30",
-    title: "Comida",
-    completionText: "la comida",
-    pictogram: "🍽️",
-    status: "pending",
-  },
-  {
-    id: "merienda",
-    startTime: "16:00",
-    title: "Merienda",
-    completionText: "la merienda",
-    pictogram: "🍎",
-    status: "pending",
-  },
-  {
-    id: "recoger-aula",
-    startTime: "17:00",
-    title: "Recoger el aula",
-    completionText: "de recoger el aula",
-    pictogram: "🧹",
-    status: "pending",
-  },
-];
-
 function areMorningActivitiesComplete(activities: Activity[]) {
   const morningActivities = activities.filter(
     (activity) => activity.startTime < "14:00",
   );
   return (
-    morningActivities.length > 0 &&
     morningActivities.every((activity) => activity.status === "completed")
   );
 }
 
-export default function AgendaHoy() {
-  const [activities, setActivities] = useState(INITIAL_ACTIVITIES);
+function formatTime(timestamp: number) {
+  return new Intl.DateTimeFormat("es-ES", {
+    timeZone: "Europe/Madrid",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(timestamp));
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "No se pudo guardar el cambio.";
+}
+
+export default function AgendaHoy({
+  fecha,
+  completedId,
+}: {
+  fecha: string;
+  completedId: string | null;
+}) {
+  const router = useRouter();
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const agenda = useQuery(
+    api.realizaciones.miAgenda,
+    isAuthenticated ? { fecha } : "skip",
+  );
+  const startMutation = useMutation(api.realizaciones.empezar);
+  const finishMutation = useMutation(api.realizaciones.terminar);
   const [period, setPeriod] = useState<Period>("morning");
   const [celebration, setCelebration] = useState<Celebration | null>(null);
-  const morningActivitiesComplete =
-    areMorningActivitiesComplete(activities);
-  const orderedActivities = [...activities].sort((a, b) =>
-    a.startTime.localeCompare(b.startTime),
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const serverActivities = useMemo<Activity[]>(
+    () =>
+      (agenda ?? []).map((activity) => ({
+        id: activity.realizacionId,
+        startTime: formatTime(activity.inicioProgramado),
+        title: activity.titulo,
+        completionText: `la actividad «${activity.titulo}»`,
+        image: activity.imagen,
+        stepCount: activity.numeroPasos,
+        currentStep: activity.pasoActual ?? 1,
+        status:
+          activity.finReal !== null
+            ? "completed"
+            : activity.inicioReal !== null
+              ? "in_progress"
+              : "pending",
+      })),
+    [agenda],
   );
+  const activities = serverActivities;
+  const orderedActivities = useMemo(
+    () => [...activities].sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [activities],
+  );
+  const morningActivitiesComplete =
+    areMorningActivitiesComplete(orderedActivities);
   const hasActivityInProgress = orderedActivities.some(
     (activity) => activity.status === "in_progress",
   );
@@ -102,31 +112,78 @@ export default function AgendaHoy() {
       : activity.startTime >= "14:00",
   );
 
-  function startActivity(id: string) {
-    setActivities((current) => {
-      const currentActivity = current.find(
-        (activity) => activity.status === "in_progress",
-      );
-      const nextActivity = [...current]
-        .sort((a, b) => a.startTime.localeCompare(b.startTime))
-        .find((activity) => activity.status === "pending");
+  useEffect(() => {
+    if (
+      completedId === null ||
+      isAuthLoading ||
+      agenda === undefined
+    ) {
+      return;
+    }
 
-      if (
-        currentActivity ||
-        nextActivity?.id !== id ||
-        (nextActivity.startTime >= "14:00" &&
-          !areMorningActivitiesComplete(current))
-      ) {
-        return current;
-      }
+    const completedActivity = activities.find(
+      (activity) => activity.id === completedId,
+    );
+    if (completedActivity?.status !== "completed") return;
 
-      return current.map((activity) =>
-        activity.id === id ? { ...activity, status: "in_progress" } : activity,
-      );
+    const completedIndex = orderedActivities.findIndex(
+      (activity) => activity.id === completedActivity.id,
+    );
+    const nextActivity =
+      orderedActivities
+        .slice(completedIndex + 1)
+        .find((activity) => activity.status === "pending") ?? null;
+
+    setCelebration({
+      completionText: completedActivity.completionText,
+      next: nextActivity,
     });
+    router.replace("/hoy");
+  }, [
+    activities,
+    agenda,
+    completedId,
+    isAuthLoading,
+    orderedActivities,
+    router,
+  ]);
+
+  async function startActivity(id: Id<"realizaciones">) {
+    const currentActivity = activities.find(
+      (activity) => activity.status === "in_progress",
+    );
+    const nextActivity = orderedActivities.find(
+      (activity) => activity.status === "pending",
+    );
+
+    if (
+      currentActivity ||
+      nextActivity?.id !== id ||
+      (nextActivity.startTime >= "14:00" && !morningActivitiesComplete)
+    ) {
+      return;
+    }
+
+    const activity = orderedActivities.find((item) => item.id === id);
+    if (activity === undefined) return;
+
+    setPendingId(id);
+    setActionError(null);
+    try {
+      await startMutation({ realizacionId: id });
+      if (activity.stepCount > 0) {
+        router.push(
+          `/estudiante/actividad/${id}/paso/${activity.currentStep}`,
+        );
+      }
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setPendingId(null);
+    }
   }
 
-  function completeActivity(id: string) {
+  async function completeActivity(id: Id<"realizaciones">) {
     const activityIndex = orderedActivities.findIndex(
       (activity) => activity.id === id,
     );
@@ -149,19 +206,39 @@ export default function AgendaHoy() {
         .slice(activityIndex + 1)
         .find((candidate) => candidate.status === "pending") ?? null;
 
-    setActivities((current) =>
-      current.map((candidate) =>
-        candidate.id === id
-          ? { ...candidate, status: "completed" }
-          : candidate,
-      ),
+    if (activity.stepCount > 0) return;
+    setPendingId(id);
+    setActionError(null);
+    try {
+      await finishMutation({ realizacionId: id });
+      setCelebration({
+        completionText: activity.completionText,
+        next: nextActivity,
+      });
+    } catch (error) {
+      setActionError(getErrorMessage(error));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  if (
+    isAuthLoading ||
+    (isAuthenticated && agenda === undefined)
+  ) {
+    return (
+      <p className="flex-1 py-6 text-center text-lg text-[#66716c]" role="status">
+        Cargando las actividades…
+      </p>
     );
-    setCelebration({
-      completionText: activity.completionText,
-      next: nextActivity
-        ? nextActivity
-        : null,
-    });
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <p className="flex-1 py-6 text-center text-lg text-[#66716c]" role="alert">
+        Inicia sesión con una cuenta de estudiante para ver tus actividades.
+      </p>
+    );
   }
 
   return (
@@ -175,6 +252,14 @@ export default function AgendaHoy() {
           Completa primero todas las actividades de la mañana.
         </p>
       )}
+      {actionError && (
+        <p
+          className="mb-2 shrink-0 rounded-xl bg-[#fbeee7] px-4 py-2 text-center font-semibold text-[#9b2c2c]"
+          role="alert"
+        >
+          {actionError}
+        </p>
+      )}
       <ul
         aria-label={
           period === "morning"
@@ -183,6 +268,11 @@ export default function AgendaHoy() {
         }
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-2"
       >
+        {visibleActivities.length === 0 && (
+          <li className="rounded-2xl border-2 border-[#e4e0d7] bg-[#fffefb] px-5 py-8 text-center text-lg text-[#66716c]">
+            No tienes actividades asignadas para este periodo.
+          </li>
+        )}
         {visibleActivities.map((activity) => {
           const isCurrent = activity.status === "in_progress";
           const isNext =
@@ -202,14 +292,29 @@ export default function AgendaHoy() {
               }`}
               key={activity.id}
             >
-              <span
-                aria-hidden="true"
-                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-3xl ${
-                  isDone ? "bg-[#f1eee7] grayscale" : "bg-[#f4f0e7]"
-                }`}
-              >
-                {activity.pictogram}
-              </span>
+              {activity.image ? (
+                <Image
+                  src={activity.image.ubicacionArchivo}
+                  alt={activity.image.textoAlternativo}
+                  width={56}
+                  height={56}
+                  unoptimized={!activity.image.arasaacId}
+                  className={`h-14 w-14 shrink-0 rounded-xl bg-[#f4f0e7] object-contain p-1 ${
+                    isDone ? "grayscale" : ""
+                  }`}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-3xl ${
+                    isDone ? "bg-[#f1eee7] grayscale" : "bg-[#f4f0e7]"
+                  }`}
+                  aria-label="Pictograma no disponible"
+                  role="img"
+                >
+                  —
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate text-lg font-bold sm:text-xl ${
@@ -242,18 +347,31 @@ export default function AgendaHoy() {
                   Hecho
                 </span>
               )}
-              {isCurrent && (
+              {isCurrent && activity.stepCount === 0 && (
                 <button
                   aria-label={`Terminar ${activity.title}`}
                   aria-describedby={
                     isAfternoonLocked ? "afternoon-locked-message" : undefined
                   }
                   className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#f2b640] px-5 text-lg font-bold text-[#242a27] transition hover:bg-[#e6a923] focus:outline-none focus:ring-4 focus:ring-[#f4dfa8] disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isAfternoonLocked}
+                  disabled={isAfternoonLocked || pendingId === activity.id}
                   onClick={() => completeActivity(activity.id)}
                   type="button"
                 >
-                  Termino <span aria-hidden="true">✓</span>
+                  {pendingId === activity.id ? "Guardando…" : "Termino"}{" "}
+                  <span aria-hidden="true">✓</span>
+                </button>
+              )}
+              {isCurrent && activity.stepCount > 0 && (
+                <button
+                  aria-label={`Continuar ${activity.title}, paso ${activity.currentStep}`}
+                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#20615b] px-5 text-lg font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb]"
+                  onClick={() => router.push(
+                    `/estudiante/actividad/${activity.id}/paso/${activity.currentStep}`,
+                  )}
+                  type="button"
+                >
+                  Continuar <span aria-hidden="true">→</span>
                 </button>
               )}
               {isNext && (
@@ -263,11 +381,12 @@ export default function AgendaHoy() {
                     isAfternoonLocked ? "afternoon-locked-message" : undefined
                   }
                   className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#20615b] px-5 text-lg font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb] disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isAfternoonLocked}
+                  disabled={isAfternoonLocked || pendingId === activity.id}
                   onClick={() => startActivity(activity.id)}
                   type="button"
                 >
-                  Empiezo <span aria-hidden="true">→</span>
+                  {pendingId === activity.id ? "Guardando…" : "Empiezo"}{" "}
+                  <span aria-hidden="true">→</span>
                 </button>
               )}
             </li>
@@ -275,7 +394,9 @@ export default function AgendaHoy() {
         })}
       </ul>
 
-      <footer className="flex shrink-0 justify-end pt-4">
+      <footer
+        className="flex shrink-0 flex-col gap-3 pt-4 sm:flex-row sm:items-end sm:justify-end"
+      >
         <div
           aria-label="Cambiar entre mañana y tarde"
           className="flex rounded-full bg-[#e9e3d6] p-1.5"
@@ -325,7 +446,10 @@ export default function AgendaHoy() {
             startActivity(celebration.next.id);
             setCelebration(null);
           }}
-          onDismiss={() => setCelebration(null)}
+          onDismiss={() => {
+            setCelebration(null);
+            router.replace("/hoy");
+          }}
         />
       )}
     </div>

@@ -8,10 +8,7 @@ export default async function HoyLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const token = await convexAuthNextjsToken();
-  const isDevelopmentPreview =
-    process.env.NODE_ENV === "development" &&
-    process.env.GUIAME_HOY_PREVIEW === "true";
-  if (!token && !isDevelopmentPreview) {
+  if (!token) {
     redirect("/login");
   }
 

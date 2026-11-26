@@ -83,7 +83,10 @@ export default function StudentSidebar() {
       <nav aria-label="Navegación del estudiante">
         <ul className="flex flex-col gap-2">
           {navigation.map(({ href, label, icon }) => {
-            const active = pathname === href;
+            const active =
+              pathname === href ||
+              (href === "/hoy" &&
+                pathname.startsWith("/estudiante/actividad/"));
 
             return (
               <li key={href}>

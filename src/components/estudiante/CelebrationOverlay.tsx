@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 
 type CelebrationOverlayProps = {
@@ -8,7 +9,11 @@ type CelebrationOverlayProps = {
     id: string;
     title: string;
     startTime: string;
-    pictogram: string;
+    image: {
+      ubicacionArchivo: string;
+      textoAlternativo: string;
+      arasaacId: string | null;
+    } | null;
   } | null;
   onDismiss: () => void;
   onStartNext: () => void;
@@ -87,7 +92,7 @@ export default function CelebrationOverlay({
           className="mt-5 text-4xl font-bold tracking-tight text-[#242a27] sm:text-5xl"
           id="celebration-title"
         >
-          ¡Muy bien, Lucía!
+          ¡Muy bien!
         </h2>
         <p
           className="mt-4 text-xl leading-8 text-[#343b38] sm:text-2xl"
@@ -102,12 +107,24 @@ export default function CelebrationOverlay({
               Lo siguiente
             </p>
             <div className="flex items-center gap-4 rounded-2xl border-2 border-[#20615b] bg-[#fffefb] p-3">
-              <span
-                aria-hidden="true"
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#f4f0e7] text-3xl"
-              >
-                {next.pictogram}
-              </span>
+              {next.image ? (
+                <Image
+                  src={next.image.ubicacionArchivo}
+                  alt={next.image.textoAlternativo}
+                  width={56}
+                  height={56}
+                  unoptimized={!next.image.arasaacId}
+                  className="h-14 w-14 shrink-0 rounded-xl bg-[#f4f0e7] object-contain p-1"
+                />
+              ) : (
+                <span
+                  aria-label="Pictograma no disponible"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#f4f0e7] text-xs font-medium text-[#66716c]"
+                  role="img"
+                >
+                  Sin imagen
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-lg font-bold text-[#242a27] sm:text-xl">
