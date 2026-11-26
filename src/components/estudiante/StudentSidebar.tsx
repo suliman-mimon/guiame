@@ -8,7 +8,7 @@ import { api } from "convex/_generated/api";
 const navigation = [
   { href: "/hoy", label: "Hoy", icon: "sun" },
   { href: "/hoy/semana", label: "Mi semana", icon: "calendar" },
-  { label: "Mi estado de ánimo", icon: "smile" },
+  { href: "/hoy/animo", label: "Mi estado de ánimo", icon: "smile" },
   { label: "Mis colores", icon: "palette" },
 ] as const;
 
@@ -70,6 +70,9 @@ export default function StudentSidebar() {
   const permiteVerSemana =
     config === undefined ? false : (config?.permiteVerSemana ?? true);
 
+  const permiteDecirComoSeSiente =
+  config === undefined ? false : (config?.permiteDecirComoSeSiente ?? true);
+
   return (
     <aside className="flex h-full w-[198px] shrink-0 flex-col bg-alumno-lateral px-3 py-5">
       <Link
@@ -89,6 +92,9 @@ export default function StudentSidebar() {
         <ul className="flex flex-col gap-2">
           {navigation.map((item) => {
             if ("href" in item && item.href === "/hoy/semana" && !permiteVerSemana) {
+              return null;
+            }
+            if ("href" in item && item.href === "/hoy/animo" && !permiteDecirComoSeSiente) {
               return null;
             }
 
