@@ -71,7 +71,7 @@ export async function requireVeAlEstudianteOrAdmin(
   const vinculosDirectos = await ctx.db
     .query("vinculosDirectos")
     .withIndex("by_tutor", (q) => q.eq("tutorId", current.tutor._id))
-    .take(50);
+    .collect();
   if (vinculosDirectos.some((v) => v.estudianteId === estudianteId)) {
     return current.tutor;
   }
@@ -79,15 +79,32 @@ export async function requireVeAlEstudianteOrAdmin(
   const matriculas = await ctx.db
     .query("matriculas")
     .withIndex("by_estudiante", (q) => q.eq("estudianteId", estudianteId))
-    .take(50);
+    .collect();
   const supervisiones = await ctx.db
     .query("supervisiones")
     .withIndex("by_tutor", (q) => q.eq("tutorId", current.tutor._id))
-    .take(50);
+    .collect();
   const clasesSupervisadas = new Set(supervisiones.map((s) => s.claseId));
   if (matriculas.some((m) => clasesSupervisadas.has(m.claseId))) {
     return current.tutor;
   }
 
   throw new Error("No autorizado: no supervisas a este alumno");
+}
+
+// La agenda de un estudiante la puede consultar el propio estudiante (RF1.1,
+// RF1.2) o un tutor/administrador autorizado a verlo (RF1.2, RF6.2/RF6.3).
+export async function requireVerAgendaEstudiante(
+  ctx: QueryCtx | MutationCtx,
+  estudianteId: Id<"estudiantes">,
+): Promise<void> {
+  const current = await getCurrentUser(ctx);
+  if (current !== null && current.kind === "estudiante") {
+    if (current.estudiante._id !== estudianteId) {
+      throw new Error("No autorizado: solo puedes ver tu propia agenda");
+    }
+    return;
+  }
+
+  await requireVeAlEstudianteOrAdmin(ctx, estudianteId);
 }
