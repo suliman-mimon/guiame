@@ -4,19 +4,23 @@ Agenda digital accesible y personalizable para el alumnado del CEE Fundación
 Purísima Concepción (Granada). Proyecto de la asignatura Dirección y Gestión
 de Proyectos, Universidad de Granada, curso 2026-2027.
 
-La documentación completa (Propuesta Técnica, Manual de Coordinación) está en
-`trabajo/segunda-entrega/`.
-
 ## Estado actual
 
-Este repositorio corresponde a la **Iteración 1** del proyecto: base técnica
-y autenticación funcionando (RF6.1, RF6.4), y el modelo de datos completo
-(RI1-RI3). Las funcionalidades del producto (agenda, actividades, estado
-emocional, personalización) se desarrollan en las iteraciones 2 y 3.
+La rama principal incluye Convex Auth, la redirección por rol, la configuración
+visual, el esquema, el seed base y las operaciones de agenda y seguimiento.
+El panel profesional incluye pantallas con datos de prueba. Hoy del alumno
+(PR #16), el seed ampliado (PR #20) y las tareas propias (PR #24 y #25)
+se revisan por separado. Comprueba qué ramas incluye el entorno antes de
+ensayar el recorrido completo.
+
+La Propuesta Técnica y el Manual de Coordinación se mantienen en la entrega
+académica del equipo. El
+[anexo de correcciones](docs/correcciones-propuesta-tecnica-sprint-2.md)
+contiene los textos propuestos para la siguiente versión de la Propuesta Técnica.
 
 ## Arquitectura
 
-- **Next.js** (App Router) para la aplicación web, con una única base de
+- **Next.js 16 y React 19** (App Router) para la aplicación web, con una única base de
   código para la vista del estudiante y el panel de tutores/administración.
 - **Convex** como servidor y base de datos: el esquema y las funciones viven
   en `convex/`, se escriben en TypeScript y se despliegan con el mismo
@@ -26,6 +30,7 @@ emocional, personalización) se desarrollan en las iteraciones 2 y 3.
   como un nombre de usuario simple (estudiantes, según el glosario de la
   Propuesta Técnica) — no se valida formato, solo se compara como texto.
 - **Tailwind CSS v4** para los estilos.
+- **Vercel** para la aplicación web y las previews de revisión.
 
 Detalle de las tecnologías y su justificación: Propuesta Técnica, apartado
 5.c.
@@ -49,23 +54,39 @@ Propuesta Técnica (apartado 4.f):
 | `estadosEmocionales` | Registro emocional diario por estudiante |
 | `configuracionesVisuales` | Paleta, tamaño de letra y apoyo visual por estudiante |
 
-Las funciones de negocio (crear/asignar actividades, comprobar
-solapamientos, etc. — RF2.x) son alcance de la iteración 2 y todavía no
-están implementadas.
+La gestión administrativa de clases (RF7.1–RF7.3) requiere pantallas y
+operaciones de creación, matrícula y asignación de tutores. Las tablas
+anteriores son la base de datos para esas funciones.
+
+### Directorios
+
+| Ruta | Contenido |
+| --- | --- |
+| `src/app/` | Rutas, layouts y estilos globales de Next.js |
+| `src/components/` | Componentes compartidos y proveedor de Convex |
+| `convex/` | Esquema, autenticación y funciones de servidor |
+| `convex/_generated/` | Tipos y referencias de API generados por Convex |
+| `.github/workflows/` | Automatización del repositorio |
 
 ## Instalación y configuración
 
-Requiere Node.js y una cuenta de Convex con acceso al team `guiame-team`
-(pedirle acceso a quien administre el proyecto).
+Usa Node.js 24 y npm. Para configurar un deployment de desarrollo del equipo
+necesitas acceso al team `guiame-team`.
 
 ```sh
-npm install
+npm ci
 npx convex dev --configure existing --team guiame-team --project guiame
 ```
 
 El segundo comando enlaza tu CLI al proyecto `guiame` del team
 `guiame-team` y genera `.env.local` (no se sube al repositorio) con las
-variables de conexión a tu propio deployment de desarrollo.
+variables de conexión a tu propio deployment de desarrollo. Comprueba
+`CONVEX_DEPLOYMENT` para la CLI y `NEXT_PUBLIC_CONVEX_URL` para el cliente
+web. Convex proporciona `CONVEX_SITE_URL`, que se usa como emisor de Convex
+Auth. Configura Convex Auth en el deployment de desarrollo. Debe tener `SITE_URL`
+con el origen de la web y el par `JWT_PRIVATE_KEY` / `JWKS`. La clave privada
+se guarda únicamente en Convex. Para un entorno local, usa
+`http://localhost:3000` como `SITE_URL`. Conserva `.env.local` fuera de Git.
 
 ## Modo de ejecución
 
@@ -79,7 +100,9 @@ Arranca en paralelo `convex dev` (sincroniza el esquema y las funciones) y
 Otros comandos útiles:
 
 ```sh
+npm run typecheck   # tipos de Convex y Next.js
 npm run lint        # typecheck + eslint
+git diff --check    # espacios sobrantes y marcadores de conflicto
 npm run build       # build de producción de Next.js
 npx convex dashboard # abre el dashboard de Convex
 ```
@@ -94,27 +117,39 @@ npx convex run accounts:createTutor \
   '{"email":"usuario_o_email","password":"...","nombre":"...","apellidos":"..."}'
 ```
 
-Añadir `--prod` apunta a producción en vez de a tu deployment de desarrollo
-personal.
+### Datos de demostración
 
-### Datos de demo
+En un deployment de desarrollo vacío, ejecuta:
 
-`npx convex run seed:seedDemoData` crea una tutora, 4 estudiantes, una clase
-("Aula 3") con sus matrículas, el catálogo de 6 emociones y 4 actividades
-con pictograma, pasos y una realización de ejemplo por estudiante para hoy
-(una completada, una en curso, el resto pendientes). Así se puede revisar
-el panel y la vista del estudiante sin dar de alta nada a mano. Cada
-preview de Vercel la ejecuta sola (`--preview-run` en `vercel.json`),
-porque nace con su propio deployment de Convex vacío.
+```sh
+npx convex run seed:seedDemoData
+```
 
-| Cuenta | Usuario | Contraseña |
-| --- | --- | --- |
-| Tutora | `marta.ruiz@centro-demo.es` | `Demo1234!` |
-| Estudiantes | `lucia`, `pablo`, `ana`, `javier` | `Demo1234!` |
+El seed interno de la base crea una tutora, alumnado ficticio y actividades.
+Si estás probando GM-14, configura antes `GUIAME_DEMO_PASSWORD` en Convex
+con al menos 12 caracteres. Usa esa contraseña con
+`marta.ruiz@centro-demo.es` o con el usuario de uno de los seis alumnos
+(`lucia`, `daniel`, `aitana`, `hugo`, `sara`, `mateo`). Las 25 sesiones
+de GM-14 están fechadas del 23 al 27 de noviembre de 2026. Para comprobar
+W2 y W3 utiliza una rama con las consultas y la interfaz conectadas.
 
-Las actividades y los estados emocionales son contenido de ejemplo
-provisional; se sustituyen cuando llegue el contenido real de Ignacio sin
-tocar la estructura del seed.
+Si el checkout incluye `tests/panel.sh`, ejecútalo con `bash tests/panel.sh`.
+La prueba del seed de GM-14 se empaqueta y ejecuta así:
+
+```sh
+bundle="$(mktemp --suffix=.cjs)"
+./node_modules/.bin/esbuild tests/seed.test.mjs --bundle --platform=node --outfile="$bundle"
+node "$bundle"
+rm -- "$bundle"
+```
+
+En la rama de GM-49, ejecuta `bash tests/tareas-alumno.sh`. Esa rama incluye
+`docs/gm-49-validacion.md` con el procedimiento de validación funcional.
+La configuración visual ya guarda `permiteCrearTareas`. La creación propia
+requiere además el modelo del PR #24 y la mutación y el formulario del #25.
+
+Estas pruebas ejercitan los handlers con una base en memoria. Para verificar
+sesión, escritura y reactividad, usa un deployment de desarrollo aparte.
 
 ## Despliegue
 
@@ -126,7 +161,32 @@ tocar la estructura del seed.
   automáticamente el alias **https://guiame-dgp.vercel.app** al deploy que
   acaba de quedar listo.
 
-El Manual de Coordinación (apartado de Control de versiones) fija como
-política integrar los cambios mediante Pull Request revisado en vez de
-push directo a `main`; `main` ya tiene una regla de protección de rama en
-GitHub que lo exige (1 aprobación obligatoria).
+## Ramas y revisión
+
+Crea una rama por tarea con su identificador, por ejemplo `GM-15-listar-estudiantes`.
+El Pull Request explica los cambios, las pruebas y sus dependencias. Si depende
+de un PR abierto, usa la rama de ese PR como base hasta que se integre. Solicita
+revisión a Pablo y, para los cambios de backend, a Suliman. La integración en
+`main` se realiza desde GitHub después de la revisión.
+
+Antes de apilar un PR, comprueba si su base sigue activa y qué código llegó
+a `main`. El PR #20 conserva su base histórica y Pablo ha pedido dejarlo
+en borrador. Pablo indicó que #17 y #19 deben cerrarse sin fusionar y que
+sus ramas deben conservarse. Una futura recuperación de la agenda del
+tutor exige revisar las funciones que ya están en `main` y coordinar la
+integración con el equipo.
+
+GM-17 y GM-18 se revisan contra `main`. Pablo condicionó la aprobación
+anterior de GM-17 a la integración del PR #18, que conecta el panel
+profesional. La configuración visual y la redirección por rol llegaron a
+`main` mediante el PR #23.
+
+Hoy parte del PR #16. Daniele es responsable de GM-29, la conexión con
+`realizaciones.miAgenda`, `empezar` y `terminar`. La propuesta local
+`GM-29-conexion-convex-hoy` espera coordinación con él. Se comprueba con
+`bash tests/agenda-hoy.sh` en ese checkout.
+
+GM-49 queda para después de la demo. El esquema está congelado y Suliman
+es responsable de los cambios estructurales. Pablo pidió dejar el modelo
+(PR #24) en borrador. El PR #25 conserva la creación autorizada y el
+formulario para completar su montaje cuando se aprueben el modelo y GM-29.
