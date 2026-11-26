@@ -45,6 +45,11 @@ export const crear = mutation({
       if (paso.texto.trim().length === 0) {
         throw new Error(`Falta el texto del paso ${index + 1}`);
       }
+      if (paso.tipoMedio !== "pictograma" && paso.archivoId === undefined) {
+        throw new Error(
+          `El paso ${index + 1} es de tipo ${paso.tipoMedio}: falta archivoId`,
+        );
+      }
     }
     if (args.duracion !== undefined) {
       if (!Number.isFinite(args.duracion) || args.duracion <= 0) {

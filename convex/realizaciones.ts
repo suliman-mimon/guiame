@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
   requireSelfEstudiante,
@@ -232,11 +232,62 @@ const entradaAgenda = v.object({
   fInicioProgramada: v.number(),
   fFinProgramada: v.number(),
   duracionEstudiante: v.optional(v.number()),
+  hInicioReal: v.optional(v.number()),
+  hFinReal: v.optional(v.number()),
 });
+
+// Compartida por listarAgenda y miAgenda: una vez autorizado el acceso,
+// ambas consultan y mapean la agenda igual. hInicioReal/hFinReal van en el
+// resultado para que el cliente sepa si debe mostrar "Empiezo", "En curso"
+// o "Hecho" sin tener que pedir el detalle de cada realización aparte.
+async function obtenerAgenda(
+  ctx: QueryCtx,
+  estudianteId: Id<"estudiantes">,
+  inicio: number,
+  fin: number,
+) {
+  if (!Number.isFinite(inicio) || !Number.isFinite(fin)) {
+    throw new Error("El rango de fechas no es válido");
+  }
+  if (fin <= inicio) {
+    throw new Error("El fin del rango debe ser posterior al inicio");
+  }
+
+  const realizaciones = await ctx.db
+    .query("realizaciones")
+    .withIndex("by_estudiante_and_inicio", (q) =>
+      q
+        .eq("estudianteId", estudianteId)
+        .gte("fInicioProgramada", inicio)
+        .lt("fInicioProgramada", fin),
+    )
+    .collect();
+
+  const resultado = [];
+  for (const realizacion of realizaciones) {
+    if (realizacion.cancelada) continue;
+    const actividad = await ctx.db.get("actividades", realizacion.actividadId);
+    if (actividad === null || actividad.cancelada) continue;
+    resultado.push({
+      realizacionId: realizacion._id,
+      actividadId: actividad._id,
+      titulo: actividad.titulo,
+      tipoActividad: actividad.tipoActividad,
+      imagenId: actividad.imagenId,
+      fInicioProgramada: realizacion.fInicioProgramada,
+      fFinProgramada: realizacion.fFinProgramada,
+      duracionEstudiante: realizacion.duracionEstudiante,
+      hInicioReal: realizacion.hInicioReal,
+      hFinReal: realizacion.hFinReal,
+    });
+  }
+  return resultado;
+}
 
 // RF1.1 / RF1.2: agenda de un estudiante entre dos instantes (día o
 // semana, según lo que calcule el cliente a partir de la hora local). Ya
-// viene ordenada ascendentemente por el índice usado.
+// viene ordenada ascendentemente por el índice usado. Para el propio
+// estudiante, usar miAgenda (no necesita pasar su estudianteId).
 export const listarAgenda = query({
   args: {
     estudianteId: v.id("estudiantes"),
@@ -246,41 +297,19 @@ export const listarAgenda = query({
   returns: v.array(entradaAgenda),
   handler: async (ctx, args) => {
     await requireVerAgendaEstudiante(ctx, args.estudianteId);
+    return await obtenerAgenda(ctx, args.estudianteId, args.inicio, args.fin);
+  },
+});
 
-    if (!Number.isFinite(args.inicio) || !Number.isFinite(args.fin)) {
-      throw new Error("El rango de fechas no es válido");
-    }
-    if (args.fin <= args.inicio) {
-      throw new Error("El fin del rango debe ser posterior al inicio");
-    }
-
-    const realizaciones = await ctx.db
-      .query("realizaciones")
-      .withIndex("by_estudiante_and_inicio", (q) =>
-        q
-          .eq("estudianteId", args.estudianteId)
-          .gte("fInicioProgramada", args.inicio)
-          .lt("fInicioProgramada", args.fin),
-      )
-      .collect();
-
-    const resultado = [];
-    for (const realizacion of realizaciones) {
-      if (realizacion.cancelada) continue;
-      const actividad = await ctx.db.get("actividades", realizacion.actividadId);
-      if (actividad === null || actividad.cancelada) continue;
-      resultado.push({
-        realizacionId: realizacion._id,
-        actividadId: actividad._id,
-        titulo: actividad.titulo,
-        tipoActividad: actividad.tipoActividad,
-        imagenId: actividad.imagenId,
-        fInicioProgramada: realizacion.fInicioProgramada,
-        fFinProgramada: realizacion.fFinProgramada,
-        duracionEstudiante: realizacion.duracionEstudiante,
-      });
-    }
-    return resultado;
+// RF1.1 / RF1.2: igual que listarAgenda, pero para que el propio
+// estudiante consulte su agenda sin tener que conocer (ni poder falsear)
+// su estudianteId: se deriva de la sesión con requireSelfEstudiante.
+export const miAgenda = query({
+  args: { inicio: v.number(), fin: v.number() },
+  returns: v.array(entradaAgenda),
+  handler: async (ctx, args) => {
+    const estudiante = await requireSelfEstudiante(ctx);
+    return await obtenerAgenda(ctx, estudiante._id, args.inicio, args.fin);
   },
 });
 
