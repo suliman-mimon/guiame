@@ -30,6 +30,8 @@
   --alumno-texto-apagado: #6e6b65;
   --alumno-borde: #e3dccf;
   --alumno-sobre-primario: #ffffff; /* texto e iconos encima de primario */
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #8a8377; /* bordes de campos y controles: ≥3:1 */
 }
 
 /*
@@ -46,6 +48,9 @@
  * Contraste WCAG 2.1 (texto sobre fondo, tarjetas y lateral; peor caso):
  *   crema 4.6:1 · alto_contraste 10.0:1 · azul_calma 5.1:1 · noche 5.6:1
  * Todas cumplen AA (4.5:1). Texto sobre primario: 7.7 · 14.9 · 7.2 · 8.5.
+ * Texto sobre acento: 8.5 · 14.9 · 7.3 · 8.5. Bordes de campos (WCAG 1.4.11,
+ * mínimo 3:1 sobre fondo y tarjetas): 3.4 · 7.4 · 3.2 · 3.7. `--alumno-borde`
+ * queda para separadores decorativos, que no necesitan 3:1.
  */
 
 /* «Crema» es la de por defecto (:root); se repite para poder volver a ella. */
@@ -63,6 +68,8 @@
   --alumno-texto-apagado: #6e6b65;
   --alumno-borde: #e3dccf;
   --alumno-sobre-primario: #ffffff;
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #8a8377; /* bordes de campos y controles: ≥3:1 */
 }
 
 /* «Alto contraste»: negro y amarillo */
@@ -80,6 +87,8 @@
   --alumno-texto-apagado: #c4c4c4; /* derivado */
   --alumno-borde: #8a8a8a; /* derivado */
   --alumno-sobre-primario: #000000;
+  --alumno-sobre-acento: #000000; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #a3a3a3; /* bordes de campos y controles: ≥3:1 */
 }
 
 /* «Azul calma»: azules suaves */
@@ -97,6 +106,8 @@
   --alumno-texto-apagado: #4a6479; /* derivado */
   --alumno-borde: #c6d8e6; /* derivado */
   --alumno-sobre-primario: #ffffff;
+  --alumno-sobre-acento: #12324a; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #6b8aa3; /* bordes de campos y controles: ≥3:1 */
 }
 
 /* «Noche»: fondo oscuro, menos brillo */
@@ -114,6 +125,8 @@
   --alumno-texto-apagado: #b0aa9e; /* derivado */
   --alumno-borde: #3a4644;
   --alumno-sobre-primario: #1f2626;
+  --alumno-sobre-acento: #1f2626; /* texto sobre acento («Ahora») */
+  --alumno-borde-campo: #7d8c89; /* bordes de campos y controles: ≥3:1 */
 }
 
 /*
@@ -177,6 +190,8 @@ html[data-letra="muy_grande"] {
   --color-alumno-texto-apagado: var(--alumno-texto-apagado);
   --color-alumno-borde: var(--alumno-borde);
   --color-alumno-sobre-primario: var(--alumno-sobre-primario);
+  --color-alumno-sobre-acento: var(--alumno-sobre-acento);
+  --color-alumno-borde-campo: var(--alumno-borde-campo);
 }
 
 html,
