@@ -94,16 +94,22 @@ async function requireVerConfiguracion(
   await requireVeAlEstudianteOrAdmin(ctx, estudianteId);
 }
 
+export function cargarConfiguracion(
+  ctx: QueryCtx | MutationCtx,
+  estudianteId: Id<"estudiantes">,
+) {
+  return ctx.db.query("configuracionesVisuales")
+    .withIndex("by_estudiante", q => q.eq("estudianteId", estudianteId))
+    .unique();
+}
+
 export const obtener = query({
   args: { estudianteId: v.id("estudiantes") },
   returns: v.union(v.null(), configuracionVisualValidator),
   handler: async (ctx, args) => {
     await requireVerConfiguracion(ctx, args.estudianteId);
 
-    const doc = await ctx.db
-      .query("configuracionesVisuales")
-      .withIndex("by_estudiante", (q) => q.eq("estudianteId", args.estudianteId))
-      .unique();
+    const doc = await cargarConfiguracion(ctx, args.estudianteId);
 
     if (doc === null) return null;
     return aCampos(doc);
@@ -120,10 +126,7 @@ export const miConfiguracion = query({
   handler: async (ctx) => {
     const estudiante = await requireSelfEstudiante(ctx);
 
-    const doc = await ctx.db
-      .query("configuracionesVisuales")
-      .withIndex("by_estudiante", (q) => q.eq("estudianteId", estudiante._id))
-      .unique();
+    const doc = await cargarConfiguracion(ctx, estudiante._id);
 
     if (doc === null) return null;
     return aCampos(doc);
@@ -153,10 +156,7 @@ export const actualizar = mutation({
 
     const { estudianteId, ...cambios } = args;
 
-    const existente = await ctx.db
-      .query("configuracionesVisuales")
-      .withIndex("by_estudiante", (q) => q.eq("estudianteId", estudianteId))
-      .unique();
+    const existente = await cargarConfiguracion(ctx, estudianteId);
 
     if (existente === null) {
       // No hay fila todavía para este alumno: se crea, pero exigiendo el

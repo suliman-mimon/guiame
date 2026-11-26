@@ -11,6 +11,19 @@ import { v } from "convex/values";
 // emociones con Figma y las indicaciones de la profesora (ver
 // "Desajustes que hay que cerrar el lunes" en el plan de sprint).
 
+const camposRealizacion = {
+  estudianteId: v.id("estudiantes"),
+  actividadId: v.id("actividades"),
+  fInicioProgramada: v.number(), // fecha y hora, epoch ms
+  fFinProgramada: v.number(),
+  hInicioReal: v.optional(v.number()),
+  hFinReal: v.optional(v.number()),
+  duracionEstudiante: v.optional(v.number()), // minutos
+  cancelada: v.boolean(),
+  calificacion: v.optional(v.string()),
+  calificadoPor: v.optional(v.id("tutores")),
+};
+
 export default defineSchema({
   ...authTables,
 
@@ -141,19 +154,18 @@ export default defineSchema({
   // Estudiante y Actividad, con su horario y seguimiento individual.
   // También guarda la calificación de RI2.6 ("Corrige") y quién la
   // asignó y quién la calificó.
-  realizaciones: defineTable({
-    estudianteId: v.id("estudiantes"),
-    actividadId: v.id("actividades"),
-    asignadoPor: v.id("tutores"),
-    fInicioProgramada: v.number(), // fecha y hora, epoch ms
-    fFinProgramada: v.number(),
-    hInicioReal: v.optional(v.number()),
-    hFinReal: v.optional(v.number()),
-    duracionEstudiante: v.optional(v.number()), // minutos
-    cancelada: v.boolean(),
-    calificacion: v.optional(v.string()),
-    calificadoPor: v.optional(v.id("tutores")),
-  })
+  realizaciones: defineTable(
+    v.union(
+      v.object({
+        ...camposRealizacion,
+        asignadoPor: v.id("tutores"),
+      }),
+      v.object({
+        ...camposRealizacion,
+        origen: v.literal("propia"),
+      }),
+    ),
+  )
     .index("by_estudiante_and_inicio", ["estudianteId", "fInicioProgramada"])
     .index("by_actividad", ["actividadId"]),
 

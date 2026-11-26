@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v, type Infer } from "convex/values";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { requireTutorOrAdmin } from "./lib/auth";
 
@@ -44,11 +44,7 @@ const pasoEntradaValidator = v.object({
   archivoId: v.optional(v.id("_storage")),
 });
 
-// RF2.1 / RF2.4 / RF2.7: crear una actividad (personal de un tutor, o del
-// centro si la crea el administrador) con su pictograma y, al menos, un
-// paso. El horario se fija al asignarla (RF2.5), no aquí.
-export const crear = mutation({
-  args: {
+const nuevaActividad = v.object({
     titulo: v.string(),
     descripcion: v.optional(v.string()),
     tipoActividad: v.union(
@@ -60,52 +56,65 @@ export const crear = mutation({
     duracion: v.optional(v.number()),
     imagenId: v.id("imagenes"),
     pasos: v.array(pasoEntradaValidator),
-  },
+});
+
+export async function crearActividad(
+  ctx: MutationCtx,
+  creadoPor: Id<"users">,
+  args: Infer<typeof nuevaActividad>,
+): Promise<Id<"actividades">> {
+  const titulo = args.titulo.trim();
+  if (titulo.length === 0) {
+    throw new Error("Falta el título de la actividad");
+  }
+  if (args.pasos.length === 0) {
+    throw new Error("La actividad debe tener al menos un paso");
+  }
+  for (const [index, paso] of args.pasos.entries()) {
+    if (paso.texto.trim().length === 0) {
+      throw new Error(`Falta el texto del paso ${index + 1}`);
+    }
+    validarMedioDePaso(paso, index);
+  }
+  if (args.duracion !== undefined) {
+    if (!Number.isFinite(args.duracion) || args.duracion <= 0) {
+      throw new Error("La duración común debe ser un número positivo");
+    }
+  }
+
+  const actividadId = await ctx.db.insert("actividades", {
+    titulo,
+    descripcion: args.descripcion,
+    tipoActividad: args.tipoActividad,
+    duracion: args.duracion,
+    imagenId: args.imagenId,
+    creadoPor,
+    cancelada: false,
+  });
+
+  for (const [index, paso] of args.pasos.entries()) {
+    await ctx.db.insert("pasos", {
+      actividadId,
+      orden: index,
+      texto: paso.texto.trim(),
+      tipoMedio: paso.tipoMedio,
+      imagenId: paso.imagenId,
+      archivoId: paso.archivoId,
+    });
+  }
+
+  return actividadId;
+}
+
+// RF2.1 / RF2.4 / RF2.7: crear una actividad (personal de un tutor, o del
+// centro si la crea el administrador) con su pictograma y, al menos, un
+// paso. El horario se fija al asignarla (RF2.5), no aquí.
+export const crear = mutation({
+  args: nuevaActividad.fields,
   returns: v.id("actividades"),
   handler: async (ctx, args) => {
     const current = await requireTutorOrAdmin(ctx);
-
-    const titulo = args.titulo.trim();
-    if (titulo.length === 0) {
-      throw new Error("Falta el título de la actividad");
-    }
-    if (args.pasos.length === 0) {
-      throw new Error("La actividad debe tener al menos un paso");
-    }
-    for (const [index, paso] of args.pasos.entries()) {
-      if (paso.texto.trim().length === 0) {
-        throw new Error(`Falta el texto del paso ${index + 1}`);
-      }
-      validarMedioDePaso(paso, index);
-    }
-    if (args.duracion !== undefined) {
-      if (!Number.isFinite(args.duracion) || args.duracion <= 0) {
-        throw new Error("La duración común debe ser un número positivo");
-      }
-    }
-
-    const actividadId = await ctx.db.insert("actividades", {
-      titulo,
-      descripcion: args.descripcion,
-      tipoActividad: args.tipoActividad,
-      duracion: args.duracion,
-      imagenId: args.imagenId,
-      creadoPor: current.userId,
-      cancelada: false,
-    });
-
-    for (const [index, paso] of args.pasos.entries()) {
-      await ctx.db.insert("pasos", {
-        actividadId,
-        orden: index,
-        texto: paso.texto.trim(),
-        tipoMedio: paso.tipoMedio,
-        imagenId: paso.imagenId,
-        archivoId: paso.archivoId,
-      });
-    }
-
-    return actividadId;
+    return await crearActividad(ctx, current.userId, args);
   },
 });
 

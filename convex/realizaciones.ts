@@ -18,7 +18,7 @@ import {
 // horario, no se comparará consigo mismo", así que la propia realización
 // que se está reprogramando se descarta del conjunto antes de comparar.
 // asignar nunca lo pasa, porque siempre crea realizaciones nuevas.
-async function cargarHorarioActivoDelEstudiante(
+export async function cargarHorarioActivoDelEstudiante(
   ctx: MutationCtx,
   estudianteId: Id<"estudiantes">,
   excluirRealizacionId?: Id<"realizaciones">,
@@ -49,7 +49,7 @@ async function cargarHorarioActivoDelEstudiante(
   return horario;
 }
 
-function seSolapan(
+export function seSolapan(
   a: { fInicioProgramada: number; fFinProgramada: number },
   b: { fInicioProgramada: number; fFinProgramada: number },
 ): boolean {
