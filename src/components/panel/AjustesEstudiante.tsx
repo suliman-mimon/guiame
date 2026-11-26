@@ -8,6 +8,7 @@ import { api } from "convex/_generated/api";
 import TemaProvider, { type ConfiguracionVisual } from "@/components/TemaProvider";
 
 // GM-36 · Ajustes del estudiante (HU-07, RF4.1–RF4.3), en el panel del tutor.
+// GM-48 · Permisos del alumno y rango de emociones (HU-08), en la misma pantalla.
 //
 // La tutora elige paleta, tamaño de letra y formatos (un botón por formato).
 // Cada clic se guarda al momento con configuracionesVisuales.actualizar (GM-10)
@@ -37,6 +38,28 @@ const FORMATOS: { id: Formato; nombre: string; icono: string }[] = [
   { id: "mostrarTexto", nombre: "Texto", icono: "Aa" },
   { id: "mostrarVideo", nombre: "Vídeo", icono: "▶" },
   { id: "mostrarAudio", nombre: "Audio", icono: "♪" },
+];
+
+// GM-48 · Permisos del alumno (HU-08). Cada interruptor habilita algo en su app:
+// Mi semana (GM-32), Mis colores (GM-37), Mi estado de ánimo (GM-33) y crear
+// sus propias tareas (GM-49).
+type Permiso =
+  | "permiteVerSemana"
+  | "permiteCambiarColores"
+  | "permiteDecirComoSeSiente"
+  | "permiteCrearTareas";
+
+const PERMISOS: { id: Permiso; nombre: string; detalle: string }[] = [
+  { id: "permiteVerSemana", nombre: "Ver su semana", detalle: "Muestra «Mi semana» en su menú" },
+  { id: "permiteCambiarColores", nombre: "Cambiar sus colores", detalle: "Puede elegir paleta y letra en «Mis colores»" },
+  { id: "permiteDecirComoSeSiente", nombre: "Decir cómo se siente", detalle: "Muestra «Mi estado de ánimo»" },
+  { id: "permiteCrearTareas", nombre: "Crear sus propias tareas", detalle: "Puede añadir tareas a su agenda" },
+];
+
+type Rango = ConfiguracionVisual["rangoEmociones"];
+const RANGOS: { id: Rango; nombre: string; detalle: string }[] = [
+  { id: "basico", nombre: "Básico", detalle: "3 emociones" },
+  { id: "ampliado", nombre: "Ampliado", detalle: "6 emociones" },
 ];
 
 // Los ids de Convex son cadenas de 31–32 letras minúsculas y dígitos. Mientras
@@ -212,6 +235,71 @@ function Formulario({ estudianteId }: { estudianteId: Id<"estudiantes"> }) {
                 );
               })}
             </div>
+          </section>
+
+          <section aria-labelledby="t-permisos" className="flex flex-col gap-3">
+            <h2 id="t-permisos" className="text-xl font-bold text-texto">Permisos</h2>
+            <p className="text-texto-suave">Qué puede hacer por su cuenta en su tablet.</p>
+            <ul className="flex flex-col divide-y divide-panel-borde rounded-tarjeta border border-panel-borde bg-panel-superficie">
+              {PERMISOS.map((p) => {
+                const activo = config[p.id];
+                return (
+                  <li key={p.id} className="flex items-center gap-4 p-4">
+                    <span className="flex flex-1 flex-col">
+                      <span id={`lbl-${p.id}`} className="font-bold text-texto">{p.nombre}</span>
+                      <span className="text-sm text-texto-suave">{p.detalle}</span>
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={activo}
+                      aria-labelledby={`lbl-${p.id}`}
+                      onClick={() => guardar({ [p.id]: !activo })}
+                      className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border-2 transition ${
+                        activo
+                          ? "border-panel-primario bg-panel-primario"
+                          : "border-texto-suave bg-panel-pista"
+                      }`}
+                    >
+                      <span
+                        aria-hidden
+                        className={`inline-block h-6 w-6 rounded-full bg-white shadow transition ${
+                          activo ? "translate-x-6" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                    <span aria-hidden className="w-10 text-sm font-bold text-texto-suave">
+                      {activo ? "Sí" : "No"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <fieldset className="mt-2 flex flex-col gap-2">
+              <legend className="font-bold text-texto">Emociones para elegir</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {RANGOS.map((r) => {
+                  const activo = config.rangoEmociones === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      aria-pressed={activo}
+                      onClick={() => guardar({ rangoEmociones: r.id })}
+                      className={`flex flex-col items-start rounded-tarjeta border-2 p-4 text-left ${
+                        activo
+                          ? "border-panel-primario bg-panel-primario-suave"
+                          : "border-panel-borde bg-panel-superficie hover:border-texto-suave"
+                      }`}
+                    >
+                      <span className="font-bold text-texto">{r.nombre}</span>
+                      <span className="text-sm text-texto-suave">{r.detalle}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
           </section>
         </div>
 
