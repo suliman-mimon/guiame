@@ -99,22 +99,25 @@ personal.
 
 ### Datos de demo
 
-`npx convex run seed:seedDemoData` crea una tutora, 4 estudiantes, una clase
-("Aula 3") con sus matrículas, el catálogo de 6 emociones y 4 actividades
-con pictograma, pasos y una realización de ejemplo por estudiante para hoy
-(una completada, una en curso, el resto pendientes). Así se puede revisar
-el panel y la vista del estudiante sin dar de alta nada a mano. Cada
-preview de Vercel la ejecuta sola (`--preview-run` en `vercel.json`),
-porque nace con su propio deployment de Convex vacío.
+En un deployment de desarrollo vacío, configura `GUIAME_DEMO_PASSWORD` en
+Convex con un valor de al menos 12 caracteres. Usa ese valor al iniciar sesión
+con `marta.ruiz@centro-demo.es` o con `lucia`, `daniel`, `aitana`, `hugo`,
+`sara` y `mateo`. Ejecuta:
 
-| Cuenta | Usuario | Contraseña |
-| --- | --- | --- |
-| Tutora | `marta.ruiz@centro-demo.es` | `Demo1234!` |
-| Estudiantes | `lucia`, `pablo`, `ana`, `javier` | `Demo1234!` |
+```sh
+npx convex run seed:seedDemoData
+```
 
-Las actividades y los estados emocionales son contenido de ejemplo
-provisional; se sustituyen cuando llegue el contenido real de Ignacio sin
-tocar la estructura del seed.
+El seed interno crea Aula 3, sus relaciones y 25 sesiones ficticias del 23 al 27
+de noviembre de 2026. Las actividades llevan pictogramas de ARASAAC y pasos.
+El intervalo de 11:30 a 12:30 queda libre para Lucía y Daniel el jueves y el
+viernes. Después de las 10:30, Hugo tiene una sesión pendiente que muestra el
+retraso. Las emociones usan un pictograma provisional.
+
+La inicialización automática con `--preview-run` requiere que las previews
+reciban esa variable en Convex. Configúrala para las previews antes de publicar
+esta rama. Para repetir el seed conserva el mismo valor. Si el entorno contiene
+la versión anterior de la demo, crea otro deployment de desarrollo.
 
 ## Despliegue
 

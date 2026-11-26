@@ -1,8 +1,9 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation } from "./_generated/server";
+import { env, internalAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { createAccount } from "@convex-dev/auth/server";
 import type { Id } from "./_generated/dataModel";
+import { actividadesDemo, estudiantesDemo, horarioDemo, pictogramas, sesionesDemo } from "./seedData";
 
 // Datos de demostración (dev y previews). Nunca pública: solo se ejecuta por
 // CLI (`npx convex run seed:seedDemoData`) o automáticamente en cada preview
@@ -11,87 +12,21 @@ import type { Id } from "./_generated/dataModel";
 // una tutora, una clase y varios estudiantes con los que poder iniciar
 // sesión para revisar el panel.
 //
-// Las 4 actividades con pictograma de abajo son contenido de ejemplo
-// provisional (HT5); cuando llegue el contenido real de Ignacio se
-// sustituyen sin tocar la estructura del seed.
-
 const ANIO_CURSO = "2026-2027";
-
-const TUTOR = {
-  email: "marta.ruiz@centro-demo.es",
-  password: "Demo1234!",
-  nombre: "Marta",
-  apellidos: "Ruiz",
-};
-
-const ESTUDIANTES = [
-  { usuario: "lucia", password: "Demo1234!", nombre: "Lucía", apellidos: "Martín" },
-  { usuario: "pablo", password: "Demo1234!", nombre: "Pablo", apellidos: "García" },
-  { usuario: "ana", password: "Demo1234!", nombre: "Ana", apellidos: "Fernández" },
-  { usuario: "javier", password: "Demo1234!", nombre: "Javier", apellidos: "López" },
-];
-
-// Catálogo fijo de 6 emociones (desajuste #6 del esquema). La imagen es un
-// placeholder hasta que se cargue el pictograma ARASAAC real de cada una.
-const EMOCIONES = [
-  "feliz",
-  "triste",
-  "enfadado",
-  "sorprendido",
-  "asustado",
-  "tranquilo",
-];
-
-// 4 actividades con pictograma (B4), una por estudiante de ejemplo. Los
-// pictogramas son placeholders hasta tener los ARASAAC reales.
-const ACTIVIDADES = [
-  {
-    titulo: "Desayunar",
-    descripcion: "Desayuno en el comedor antes de empezar las clases.",
-    tipoActividad: "familiar" as const,
-    duracion: 20,
-    pictograma: "desayuno",
-    pasos: [
-      { texto: "Lavarse las manos", pictograma: "lavarse_manos" },
-      { texto: "Comer el desayuno", pictograma: "comer" },
-    ],
-  },
-  {
-    titulo: "Lavarse los dientes",
-    descripcion: "Higiene dental después del desayuno.",
-    tipoActividad: "familiar" as const,
-    duracion: 5,
-    pictograma: "cepillo_dientes",
-    pasos: [{ texto: "Cepillarse los dientes", pictograma: "cepillo_dientes" }],
-  },
-  {
-    titulo: "Tarea de matemáticas",
-    descripcion: "Ejercicios de sumas con apoyo visual.",
-    tipoActividad: "academica" as const,
-    duracion: 30,
-    pictograma: "matematicas",
-    pasos: [
-      { texto: "Coger el cuaderno y el lápiz", pictograma: "cuaderno" },
-      { texto: "Hacer los ejercicios", pictograma: "matematicas" },
-    ],
-  },
-  {
-    titulo: "Salir al recreo",
-    descripcion: "Tiempo libre en el patio.",
-    tipoActividad: "academica" as const,
-    duracion: 15,
-    pictograma: "recreo",
-    pasos: [{ texto: "Salir al patio", pictograma: "recreo" }],
-  },
-];
+const TUTOR = { email: "marta.ruiz@centro-demo.es", nombre: "Marta", apellidos: "Ruiz" };
+const EMOCIONES = ["feliz", "triste", "enfadado", "sorprendido", "asustado", "tranquilo"];
 
 export const seedDemoData = internalAction({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    const password = env.GUIAME_DEMO_PASSWORD;
+    if (!password || password.length < 12) {
+      throw new Error("Configura GUIAME_DEMO_PASSWORD en el deployment de demostración");
+    }
     const { user: tutorUser } = await createAccount(ctx, {
       provider: "password",
-      account: { id: TUTOR.email, secret: TUTOR.password },
+      account: { id: TUTOR.email, secret: password },
       profile: {
         email: TUTOR.email,
         name: TUTOR.nombre,
@@ -102,10 +37,10 @@ export const seedDemoData = internalAction({
     });
 
     const estudianteIds: Id<"estudiantes">[] = [];
-    for (const est of ESTUDIANTES) {
+    for (const est of estudiantesDemo) {
       const { user: estUser } = await createAccount(ctx, {
         provider: "password",
-        account: { id: est.usuario, secret: est.password },
+        account: { id: est.usuario, secret: password },
         profile: {
           name: est.nombre,
           apellidos: est.apellidos,
@@ -133,9 +68,11 @@ export const insertEstudiante = internalMutation({
   args: { userId: v.id("users") },
   returns: v.id("estudiantes"),
   handler: async (ctx, args) => {
-    const estudianteId = await ctx.db.insert("estudiantes", {
-      userId: args.userId,
-    });
+    const existente = await ctx.db.query("estudiantes")
+      .withIndex("by_userId", q => q.eq("userId", args.userId)).unique();
+    if (existente) return existente._id;
+
+    const estudianteId = await ctx.db.insert("estudiantes", { userId: args.userId });
     await ctx.db.insert("configuracionesVisuales", {
       estudianteId,
       paletaColor: "crema",
@@ -161,7 +98,23 @@ export const insertClaseYRelaciones = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const tutorId = await ctx.db.insert("tutores", {
+    const tutor = await ctx.db.query("tutores")
+      .withIndex("by_userId", q => q.eq("userId", args.tutorUserId)).unique();
+    if (tutor) {
+      const supervision = await ctx.db.query("supervisiones")
+        .withIndex("by_tutor", q => q.eq("tutorId", tutor._id)).first();
+      if (supervision) {
+        const matriculas = await ctx.db.query("matriculas")
+          .withIndex("by_clase_and_anio", q => q.eq("claseId", supervision.claseId)
+            .eq("anioCursoAcademico", ANIO_CURSO)).take(estudiantesDemo.length + 1);
+        if (matriculas.length === args.estudianteIds.length &&
+            args.estudianteIds.every(id => matriculas.some(m => m.estudianteId === id))) {
+          return null;
+        }
+        throw new Error("El deployment ya tiene un seed distinto. Usa un entorno de desarrollo nuevo");
+      }
+    }
+    const tutorId = tutor?._id ?? await ctx.db.insert("tutores", {
       userId: args.tutorUserId,
       esFamiliar: false,
     });
@@ -184,7 +137,7 @@ export const insertClaseYRelaciones = internalMutation({
 
     for (let i = 0; i < EMOCIONES.length; i++) {
       const imagenId = await ctx.db.insert("imagenes", {
-        ubicacionArchivo: `/placeholder/emociones/${EMOCIONES[i]}.svg`,
+        ubicacionArchivo: "/demo-emocion.svg",
         textoAlternativo: EMOCIONES[i],
       });
       await ctx.db.insert("catalogoEmociones", {
@@ -194,57 +147,54 @@ export const insertClaseYRelaciones = internalMutation({
       });
     }
 
-    const actividadIds: Id<"actividades">[] = [];
-    for (const actividad of ACTIVIDADES) {
-      const imagenId = await ctx.db.insert("imagenes", {
-        ubicacionArchivo: `/placeholder/actividades/${actividad.pictograma}.svg`,
-        textoAlternativo: actividad.pictograma,
-      });
+    const imagenes = new Map<string, Id<"imagenes">>();
+    for (const [clave, [arasaacId, textoAlternativo]] of Object.entries(pictogramas)) {
+      imagenes.set(clave, await ctx.db.insert("imagenes", {
+        arasaacId,
+        textoAlternativo,
+        ubicacionArchivo: `https://api.arasaac.org/v1/pictograms/${arasaacId}?download=false`,
+      }));
+    }
+
+    function imagenDe(clave: keyof typeof pictogramas) {
+      const id = imagenes.get(clave);
+      if (!id) throw new Error("Falta un pictograma de demostración");
+      return id;
+    }
+
+    const actividadIds = new Map<string, Id<"actividades">>();
+    for (const [clave, actividad] of Object.entries(actividadesDemo)) {
       const actividadId = await ctx.db.insert("actividades", {
         titulo: actividad.titulo,
-        descripcion: actividad.descripcion,
-        tipoActividad: actividad.tipoActividad,
-        duracion: actividad.duracion,
-        imagenId,
+        tipoActividad: actividad.tipo,
+        duracion: actividad.minutos,
+        imagenId: imagenDe(actividad.imagen),
         creadoPor: args.tutorUserId,
         cancelada: false,
       });
-      for (let i = 0; i < actividad.pasos.length; i++) {
-        const pasoImagenId = await ctx.db.insert("imagenes", {
-          ubicacionArchivo: `/placeholder/actividades/${actividad.pasos[i].pictograma}.svg`,
-          textoAlternativo: actividad.pasos[i].pictograma,
-        });
+      for (const [orden, [texto, imagen]] of actividad.pasos.entries()) {
         await ctx.db.insert("pasos", {
-          actividadId,
-          orden: i,
-          texto: actividad.pasos[i].texto,
-          tipoMedio: "pictograma",
-          imagenId: pasoImagenId,
+          actividadId, orden, texto, tipoMedio: "pictograma", imagenId: imagenDe(imagen),
         });
       }
-      actividadIds.push(actividadId);
+      actividadIds.set(clave, actividadId);
     }
 
-    // Una realización por estudiante hoy, con una mezcla de estados: la
-    // primera ya completada, la segunda en curso, el resto pendientes.
-    const MINUTO = 60 * 1000;
-    const ahora = Date.now();
-    const n = Math.min(args.estudianteIds.length, actividadIds.length);
-    for (let i = 0; i < n; i++) {
-      const duracion = ACTIVIDADES[i].duracion;
-      const inicioProgramado = ahora + (i - 1) * 90 * MINUTO;
-      const finProgramado = inicioProgramado + duracion * MINUTO;
-      const completada = i === 0;
-      const enCurso = i === 1;
+    for (const [dia, hora, indice, clave, estado] of sesionesDemo) {
+      const actividadId = actividadIds.get(clave);
+      const estudianteId = args.estudianteIds[indice];
+      if (!actividadId || !estudianteId) throw new Error("Sesión de demostración inválida");
+      const duracion = actividadesDemo[clave].minutos;
+      const { inicio, fin } = horarioDemo(dia, hora, duracion);
       await ctx.db.insert("realizaciones", {
-        estudianteId: args.estudianteIds[i],
-        actividadId: actividadIds[i],
+        estudianteId,
+        actividadId,
         asignadoPor: tutorId,
-        fInicioProgramada: inicioProgramado,
-        fFinProgramada: finProgramado,
-        hInicioReal: completada || enCurso ? inicioProgramado : undefined,
-        hFinReal: completada ? finProgramado : undefined,
-        duracionEstudiante: completada ? duracion : undefined,
+        fInicioProgramada: inicio,
+        fFinProgramada: fin,
+        hInicioReal: estado ? inicio : undefined,
+        hFinReal: estado === "hecha" ? fin : undefined,
+        duracionEstudiante: estado === "hecha" ? duracion : undefined,
         cancelada: false,
       });
     }
