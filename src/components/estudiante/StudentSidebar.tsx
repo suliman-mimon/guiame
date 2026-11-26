@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "convex/_generated/api";
 
 const navigation = [
   { href: "/hoy", label: "Hoy", icon: "sun" },
-  { label: "Mi semana", icon: "calendar" },
-  {
-    label: "Mi estado de ánimo",
-    icon: "smile",
-  },
+  { href: "/hoy/semana", label: "Mi semana", icon: "calendar" },
+  { label: "Mi estado de ánimo", icon: "smile" },
   { label: "Mis colores", icon: "palette" },
 ] as const;
 
@@ -63,6 +62,13 @@ function Icon({ name }: { name: IconName }) {
 
 export default function StudentSidebar() {
   const pathname = usePathname();
+  const { isAuthenticated } = useConvexAuth();
+  const config = useQuery(
+    api.configuracionesVisuales.miConfiguracion,
+    isAuthenticated ? {} : "skip",
+  );
+  const permiteVerSemana =
+    config === undefined ? false : (config?.permiteVerSemana ?? true);
 
   return (
     <aside className="flex h-full w-[198px] shrink-0 flex-col bg-alumno-lateral px-3 py-5">
@@ -82,6 +88,10 @@ export default function StudentSidebar() {
       <nav aria-label="Navegación del estudiante">
         <ul className="flex flex-col gap-2">
           {navigation.map((item) => {
+            if ("href" in item && item.href === "/hoy/semana" && !permiteVerSemana) {
+              return null;
+            }
+
             if (!("href" in item)) {
               return (
                 <li key={item.label}>
@@ -100,9 +110,10 @@ export default function StudentSidebar() {
             }
 
             const active =
-              pathname === item.href ||
-              (item.href === "/hoy" &&
-                pathname.startsWith("/hoy/actividad/"));
+              item.href === "/hoy"
+                ? pathname === "/hoy" || pathname.startsWith("/hoy/actividad/")
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
             return (
               <li key={item.href}>
                 <Link
