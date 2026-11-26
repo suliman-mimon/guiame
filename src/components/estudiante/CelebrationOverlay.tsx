@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useRef } from "react";
 
 type CelebrationOverlayProps = {
@@ -9,11 +8,6 @@ type CelebrationOverlayProps = {
     id: string;
     title: string;
     startTime: string;
-    image: {
-      ubicacionArchivo: string;
-      textoAlternativo: string;
-      arasaacId: string | null;
-    } | null;
   } | null;
   onDismiss: () => void;
   onStartNext: () => void;
@@ -61,7 +55,7 @@ export default function CelebrationOverlay({
   }, [onDismiss]);
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden bg-[#f7f3eb] px-8 py-6">
+    <div className="absolute inset-0 z-30 flex items-center justify-center overflow-hidden bg-alumno-fondo px-8 py-6">
       <section
         aria-describedby="celebration-description"
         aria-labelledby="celebration-title"
@@ -71,7 +65,7 @@ export default function CelebrationOverlay({
       >
         <div
           aria-hidden="true"
-          className="mx-auto flex h-40 w-40 items-center justify-center rounded-full bg-[#fff1cc]"
+          className="mx-auto flex h-40 w-40 items-center justify-center rounded-full bg-alumno-acento/20"
         >
           <svg
             className="h-20 w-20"
@@ -80,7 +74,7 @@ export default function CelebrationOverlay({
           >
             <path
               d="m12 2.5 2.85 5.78 6.38.93-4.62 4.5 1.09 6.36L12 17.06l-5.7 3 1.09-6.35-4.62-4.5 6.38-.93L12 2.5Z"
-              fill="#f2b640"
+              fill="var(--alumno-acento)"
               stroke="#b8791d"
               strokeLinejoin="round"
               strokeWidth="1.7"
@@ -89,13 +83,13 @@ export default function CelebrationOverlay({
         </div>
 
         <h2
-          className="mt-5 text-4xl font-bold tracking-tight text-[#242a27] sm:text-5xl"
+          className="mt-5 text-4xl font-bold tracking-tight text-alumno-texto sm:text-5xl"
           id="celebration-title"
         >
           ¡Muy bien!
         </h2>
         <p
-          className="mt-4 text-xl leading-8 text-[#343b38] sm:text-2xl"
+          className="mt-4 text-xl leading-8 text-alumno-texto-secundario sm:text-2xl"
           id="celebration-description"
         >
           Has terminado {completionText}.
@@ -103,41 +97,30 @@ export default function CelebrationOverlay({
 
         {next ? (
           <div className="mt-7 text-left">
-            <p className="mb-2 text-lg font-bold text-[#66645f]">
+            <p className="mb-2 text-lg font-bold text-alumno-texto-suave">
               Lo siguiente
             </p>
-            <div className="flex items-center gap-4 rounded-2xl border-2 border-[#20615b] bg-[#fffefb] p-3">
-              {next.image ? (
-                <Image
-                  src={next.image.ubicacionArchivo}
-                  alt={next.image.textoAlternativo}
-                  width={56}
-                  height={56}
-                  unoptimized={!next.image.arasaacId}
-                  className="h-14 w-14 shrink-0 rounded-xl bg-[#f4f0e7] object-contain p-1"
-                />
-              ) : (
-                <span
-                  aria-label="Pictograma no disponible"
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#f4f0e7] text-xs font-medium text-[#66716c]"
-                  role="img"
-                >
-                  Sin imagen
-                </span>
-              )}
+            <div className="flex items-center gap-4 rounded-2xl border-2 border-alumno-primario bg-alumno-superficie p-3">
+              <span
+                aria-label="Pictograma no disponible"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-alumno-superficie-hecha text-xs font-medium text-alumno-texto-suave"
+                role="img"
+              >
+                Sin imagen
+              </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-lg font-bold text-[#242a27] sm:text-xl">
+                  <p className="text-lg font-bold text-alumno-texto sm:text-xl">
                     {next.title}
                   </p>
-                  <span className="shrink-0 rounded-full bg-[#f2b640] px-2.5 py-0.5 text-sm font-bold text-[#242a27]">
+                  <span className="shrink-0 rounded-full bg-alumno-acento px-2.5 py-0.5 text-sm font-bold text-alumno-texto">
                     Siguiente
                   </span>
                 </div>
-                <p className="mt-1 text-[#66645f]">{next.startTime}</p>
+                <p className="mt-1 text-alumno-texto-suave">{next.startTime}</p>
               </div>
               <button
-                className="flex min-h-14 shrink-0 items-center gap-2 rounded-xl bg-[#20615b] px-4 text-lg font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb] sm:px-5"
+                className="flex min-h-14 shrink-0 items-center gap-2 rounded-xl bg-alumno-primario px-4 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:px-5"
                 onClick={onStartNext}
                 ref={startNextButtonRef}
                 type="button"
@@ -154,13 +137,13 @@ export default function CelebrationOverlay({
             </div>
           </div>
         ) : (
-          <p className="mt-6 text-xl font-semibold text-[#20615b]">
+          <p className="mt-6 text-xl font-semibold text-alumno-primario">
             ¡Has completado todas tus actividades de hoy!
           </p>
         )}
 
         <button
-          className="mt-6 inline-flex min-h-16 items-center gap-3 rounded-2xl bg-[#20615b] px-8 text-xl font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb]"
+          className="mt-6 inline-flex min-h-16 items-center gap-3 rounded-2xl bg-alumno-primario px-8 text-xl font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
           onClick={onDismiss}
           ref={returnButtonRef}
           type="button"

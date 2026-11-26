@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
@@ -15,16 +14,7 @@ type Activity = {
   startTime: string;
   title: string;
   completionText: string;
-  image: ActivityImage | null;
-  stepCount: number;
-  currentStep: number;
   status: "pending" | "in_progress" | "completed";
-};
-
-type ActivityImage = {
-  ubicacionArchivo: string;
-  textoAlternativo: string;
-  arasaacId: string | null;
 };
 
 type Celebration = {
@@ -55,20 +45,21 @@ function getErrorMessage(error: unknown) {
 }
 
 export default function AgendaHoy({
-  fecha,
+  inicio,
+  fin,
   completedId,
 }: {
-  fecha: string;
+  inicio: number;
+  fin: number;
   completedId: string | null;
 }) {
   const router = useRouter();
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const agenda = useQuery(
     api.realizaciones.miAgenda,
-    isAuthenticated ? { fecha } : "skip",
+    isAuthenticated ? { inicio, fin } : "skip",
   );
   const startMutation = useMutation(api.realizaciones.empezar);
-  const finishMutation = useMutation(api.realizaciones.terminar);
   const [period, setPeriod] = useState<Period>("morning");
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -78,16 +69,13 @@ export default function AgendaHoy({
     () =>
       (agenda ?? []).map((activity) => ({
         id: activity.realizacionId,
-        startTime: formatTime(activity.inicioProgramado),
+        startTime: formatTime(activity.fInicioProgramada),
         title: activity.titulo,
         completionText: `la actividad «${activity.titulo}»`,
-        image: activity.imagen,
-        stepCount: activity.numeroPasos,
-        currentStep: activity.pasoActual ?? 1,
         status:
-          activity.finReal !== null
+          activity.hFinReal !== undefined
             ? "completed"
-            : activity.inicioReal !== null
+            : activity.hInicioReal !== undefined
               ? "in_progress"
               : "pending",
       })),
@@ -171,50 +159,7 @@ export default function AgendaHoy({
     setActionError(null);
     try {
       await startMutation({ realizacionId: id });
-      if (activity.stepCount > 0) {
-        router.push(
-          `/estudiante/actividad/${id}/paso/${activity.currentStep}`,
-        );
-      }
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setPendingId(null);
-    }
-  }
-
-  async function completeActivity(id: Id<"realizaciones">) {
-    const activityIndex = orderedActivities.findIndex(
-      (activity) => activity.id === id,
-    );
-    const activity = orderedActivities[activityIndex];
-    const nextUncompletedActivity = orderedActivities.find(
-      (candidate) => candidate.status !== "completed",
-    );
-
-    if (
-      !activity ||
-      nextUncompletedActivity?.id !== id ||
-      activity.status !== "in_progress" ||
-      (activity.startTime >= "14:00" && !morningActivitiesComplete)
-    ) {
-      return;
-    }
-
-    const nextActivity =
-      orderedActivities
-        .slice(activityIndex + 1)
-        .find((candidate) => candidate.status === "pending") ?? null;
-
-    if (activity.stepCount > 0) return;
-    setPendingId(id);
-    setActionError(null);
-    try {
-      await finishMutation({ realizacionId: id });
-      setCelebration({
-        completionText: activity.completionText,
-        next: nextActivity,
-      });
+      router.push(`/estudiante/actividad/${id}/paso/1`);
     } catch (error) {
       setActionError(getErrorMessage(error));
     } finally {
@@ -227,7 +172,7 @@ export default function AgendaHoy({
     (isAuthenticated && agenda === undefined)
   ) {
     return (
-      <p className="flex-1 py-6 text-center text-lg text-[#66716c]" role="status">
+      <p className="flex-1 py-6 text-center text-lg text-alumno-texto-suave" role="status">
         Cargando las actividades…
       </p>
     );
@@ -235,7 +180,7 @@ export default function AgendaHoy({
 
   if (!isAuthenticated) {
     return (
-      <p className="flex-1 py-6 text-center text-lg text-[#66716c]" role="alert">
+      <p className="flex-1 py-6 text-center text-lg text-alumno-texto-suave" role="alert">
         Inicia sesión con una cuenta de estudiante para ver tus actividades.
       </p>
     );
@@ -245,7 +190,7 @@ export default function AgendaHoy({
     <div className="flex min-h-0 flex-1 flex-col">
       {period === "afternoon" && !morningActivitiesComplete && (
         <p
-          className="mb-2 shrink-0 rounded-xl bg-[#f2b640] px-4 py-2 text-center font-bold text-[#242a27]"
+          className="mb-2 shrink-0 rounded-xl bg-alumno-acento px-4 py-2 text-center font-bold text-alumno-texto"
           id="afternoon-locked-message"
           role="status"
         >
@@ -269,7 +214,7 @@ export default function AgendaHoy({
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden pt-2"
       >
         {visibleActivities.length === 0 && (
-          <li className="rounded-2xl border-2 border-[#e4e0d7] bg-[#fffefb] px-5 py-8 text-center text-lg text-[#66716c]">
+          <li className="rounded-2xl border-2 border-alumno-borde bg-alumno-superficie px-5 py-8 text-center text-lg text-alumno-texto-suave">
             No tienes actividades asignadas para este periodo.
           </li>
         )}
@@ -283,52 +228,38 @@ export default function AgendaHoy({
 
           return (
             <li
-              className={`relative flex min-h-[88px] shrink-0 items-center gap-4 rounded-2xl border-2 bg-[#fffefb] px-4 sm:gap-5 sm:px-5 ${
+              className={`relative flex min-h-[88px] shrink-0 items-center gap-4 rounded-2xl border-2 bg-alumno-superficie px-4 sm:gap-5 sm:px-5 ${
                 isCurrent
-                  ? "border-[#20615b]"
+                  ? "border-alumno-primario"
                   : isNext
-                    ? "border-[#20615b]/50"
-                    : "border-[#e4e0d7]"
+                    ? "border-alumno-primario/50"
+                    : "border-alumno-borde"
               }`}
               key={activity.id}
             >
-              {activity.image ? (
-                <Image
-                  src={activity.image.ubicacionArchivo}
-                  alt={activity.image.textoAlternativo}
-                  width={56}
-                  height={56}
-                  unoptimized={!activity.image.arasaacId}
-                  className={`h-14 w-14 shrink-0 rounded-xl bg-[#f4f0e7] object-contain p-1 ${
-                    isDone ? "grayscale" : ""
-                  }`}
-                />
-              ) : (
-                <span
-                  aria-hidden="true"
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-3xl ${
-                    isDone ? "bg-[#f1eee7] grayscale" : "bg-[#f4f0e7]"
-                  }`}
-                  aria-label="Pictograma no disponible"
-                  role="img"
-                >
-                  —
-                </span>
-              )}
+              <span
+                aria-label="Pictograma no disponible"
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-alumno-superficie-hecha text-3xl ${
+                  isDone ? "grayscale" : ""
+                }`}
+                role="img"
+              >
+                —
+              </span>
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate text-lg font-bold sm:text-xl ${
-                    isDone ? "text-[#77736c]" : "text-[#242a27]"
+                    isDone ? "text-alumno-texto-apagado" : "text-alumno-texto"
                   }`}
                 >
                   {activity.title}
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="text-sm font-medium text-[#77736c] sm:text-base">
+                  <span className="text-sm font-medium text-alumno-texto-apagado sm:text-base">
                     {activity.startTime}
                   </span>
                   {isCurrent && (
-                    <span className="rounded-full bg-[#f2b640] px-2.5 py-0.5 text-xs font-bold text-[#242a27]">
+                    <span className="rounded-full bg-alumno-acento px-2.5 py-0.5 text-xs font-bold text-alumno-texto">
                       En curso
                     </span>
                   )}
@@ -340,35 +271,22 @@ export default function AgendaHoy({
                 </div>
               </div>
               {isDone && (
-                <span className="flex shrink-0 items-center gap-2 text-lg font-bold text-[#20615b] sm:text-xl">
+                <span className="flex shrink-0 items-center gap-2 text-lg font-bold text-alumno-primario sm:text-xl">
                   <span aria-hidden="true" className="text-2xl">
                     ✓
                   </span>
                   Hecho
                 </span>
               )}
-              {isCurrent && activity.stepCount === 0 && (
+              {isCurrent && (
                 <button
-                  aria-label={`Terminar ${activity.title}`}
-                  aria-describedby={
-                    isAfternoonLocked ? "afternoon-locked-message" : undefined
+                  aria-label={`Continuar ${activity.title}, paso 1`}
+                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+                  onClick={() =>
+                    router.push(
+                      `/estudiante/actividad/${activity.id}/paso/1`,
+                    )
                   }
-                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#f2b640] px-5 text-lg font-bold text-[#242a27] transition hover:bg-[#e6a923] focus:outline-none focus:ring-4 focus:ring-[#f4dfa8] disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isAfternoonLocked || pendingId === activity.id}
-                  onClick={() => completeActivity(activity.id)}
-                  type="button"
-                >
-                  {pendingId === activity.id ? "Guardando…" : "Termino"}{" "}
-                  <span aria-hidden="true">✓</span>
-                </button>
-              )}
-              {isCurrent && activity.stepCount > 0 && (
-                <button
-                  aria-label={`Continuar ${activity.title}, paso ${activity.currentStep}`}
-                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#20615b] px-5 text-lg font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb]"
-                  onClick={() => router.push(
-                    `/estudiante/actividad/${activity.id}/paso/${activity.currentStep}`,
-                  )}
                   type="button"
                 >
                   Continuar <span aria-hidden="true">→</span>
@@ -380,7 +298,7 @@ export default function AgendaHoy({
                   aria-describedby={
                     isAfternoonLocked ? "afternoon-locked-message" : undefined
                   }
-                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-[#20615b] px-5 text-lg font-bold text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-14 shrink-0 items-center gap-3 rounded-xl bg-alumno-primario px-5 text-lg font-bold text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={isAfternoonLocked || pendingId === activity.id}
                   onClick={() => startActivity(activity.id)}
                   type="button"
@@ -399,15 +317,15 @@ export default function AgendaHoy({
       >
         <div
           aria-label="Cambiar entre mañana y tarde"
-          className="flex rounded-full bg-[#e9e3d6] p-1.5"
+          className="flex rounded-full bg-alumno-lateral p-1.5"
           role="group"
         >
           <button
             aria-pressed={period === "morning"}
-            className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-[#c8dedb] ${
+            className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 ${
               period === "morning"
-                ? "bg-[#20615b] text-white"
-                : "text-[#343b38] hover:bg-[#ddd6c9]"
+                ? "bg-alumno-primario text-white"
+                : "text-alumno-texto-secundario hover:bg-alumno-lateral"
             }`}
             onClick={() => setPeriod("morning")}
             type="button"
@@ -419,10 +337,10 @@ export default function AgendaHoy({
           </button>
           <button
             aria-pressed={period === "afternoon"}
-            className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-[#c8dedb] ${
+            className={`flex min-h-14 min-w-40 items-center justify-center gap-3 rounded-full px-5 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 ${
               period === "afternoon"
-                ? "bg-[#20615b] text-white"
-                : "text-[#343b38] hover:bg-[#ddd6c9]"
+                ? "bg-alumno-primario text-white"
+                : "text-alumno-texto-secundario hover:bg-alumno-lateral"
             }`}
             onClick={() => setPeriod("afternoon")}
             type="button"

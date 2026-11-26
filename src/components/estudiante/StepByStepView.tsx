@@ -51,7 +51,7 @@ function Pictogram({
 }) {
   return (
     <figure className="flex h-full min-h-56 w-full max-w-[360px] flex-col items-center justify-center gap-3">
-      <div className="flex min-h-56 w-full items-center justify-center rounded-[28px] bg-[#f2ede2] p-5">
+      <div className="flex min-h-56 w-full items-center justify-center rounded-[28px] bg-alumno-lateral p-5">
           {pictogram ? (
             <Image
               alt={pictogram.alt}
@@ -63,12 +63,12 @@ function Pictogram({
               width={500}
             />
           ) : (
-            <p className="text-center text-lg font-semibold text-[#66716c]">
-              No hay un pictograma para este paso.
+            <p className="text-center text-lg font-semibold text-alumno-texto-suave">
+              No se pudo cargar el pictograma de este paso.
             </p>
           )}
       </div>
-      <figcaption className="text-center text-xs text-[#66716c]">
+      <figcaption className="text-center text-xs text-alumno-texto-suave">
         Pictogramas de Sergio Palao,{" "}
         <a
           className="underline underline-offset-2"
@@ -99,10 +99,10 @@ function VideoPlaceholder({ src }: { src: string | null }) {
   }
 
   return (
-    <div className="flex aspect-video w-full max-w-[520px] flex-col items-center justify-center rounded-2xl bg-[#1e2928] px-6 text-center text-white">
+    <div className="flex aspect-video w-full max-w-[520px] flex-col items-center justify-center rounded-2xl bg-alumno-primario-hover px-6 text-center text-white">
       <span
         aria-hidden="true"
-        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-3xl text-[#20615b]"
+        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white text-3xl text-alumno-primario"
       >
         ▶
       </span>
@@ -162,10 +162,10 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
           Este navegador no puede reproducir el audio.
         </audio>
       ) : (
-        <div className="flex items-center gap-4 rounded-2xl border-2 border-[#e4e0d7] bg-[#fffefb] p-4">
+        <div className="flex items-center gap-4 rounded-2xl border-2 border-alumno-borde bg-alumno-superficie p-4">
         <button
           aria-label={isSpeaking ? "Detener audio" : "Escuchar instrucción"}
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#20615b] text-2xl text-white transition hover:bg-[#184d48] focus:outline-none focus:ring-4 focus:ring-[#c8dedb]"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-alumno-primario text-2xl text-white transition hover:bg-alumno-primario-hover focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
           onClick={toggleSpeech}
           type="button"
         >
@@ -176,7 +176,9 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
             (height, index) => (
               <span
                 className={`w-1.5 rounded-full ${
-                  isSpeaking && index < 6 ? "bg-[#20615b]" : "bg-[#c7bead]"
+                  isSpeaking && index < 6
+                    ? "bg-alumno-primario"
+                    : "bg-alumno-borde"
                 }`}
                 key={`${height}-${index}`}
                 style={{ height }}
@@ -184,12 +186,12 @@ function AudioPlayer({ text, src }: { text: string; src: string | null }) {
             ),
           )}
         </div>
-        <span className="shrink-0 text-sm font-bold text-[#343b38]">
+        <span className="shrink-0 text-sm font-bold text-alumno-texto-secundario">
           {isSpeaking ? "Reproduciendo" : "Audio"}
         </span>
         </div>
       )}
-      <p className="mt-3 text-center text-sm text-[#66716c]">
+      <p className="mt-3 text-center text-sm text-alumno-texto-suave">
         {src
           ? "Escucha el audio de este paso."
           : isSpeaking
@@ -216,58 +218,60 @@ export default function StepByStepView({
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const detail = useQuery(
     api.realizaciones.obtenerDetalle,
-    isAuthenticated
-      ? { realizacionId: realizationId, numeroPaso: stepNumber }
+    isAuthenticated ? { realizacionId: realizationId } : "skip",
+  );
+  const selectedStep = detail?.pasos.find(
+    (paso) => paso.orden === stepNumber - 1,
+  );
+  const mediaFileId =
+    selectedStep?.tipoMedio === "video" || selectedStep?.tipoMedio === "audio"
+      ? selectedStep.archivoId
+      : undefined;
+  const mediaUrl = useQuery(
+    api.actividades.obtenerUrlArchivo,
+    isAuthenticated && mediaFileId !== undefined
+      ? { archivoId: mediaFileId }
       : "skip",
   );
-  const advanceMutation = useMutation(api.realizaciones.avanzarPaso);
   const finishMutation = useMutation(api.realizaciones.terminar);
   const [format, setFormat] = useState<Format>("pictograma");
   const [isSaving, setIsSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const step: ActivityStep | null = detail
+  const step: ActivityStep | null = detail && selectedStep
     ? {
-        title: detail.paso.texto,
+        title: selectedStep.texto,
         description: detail.descripcion ?? "",
-        pictogram:
-          detail.paso.imagen === null
-            ? null
-            : {
-                url: detail.paso.imagen.ubicacionArchivo,
-                arasaacId: detail.paso.imagen.arasaacId,
-                alt: detail.paso.imagen.textoAlternativo,
-              },
-        initialFormat: detail.paso.tipoMedio,
+        pictogram: null,
+        initialFormat: selectedStep.tipoMedio,
         videoUrl:
-          detail.paso.tipoMedio === "video" ? detail.paso.archivoUrl : null,
+          selectedStep.tipoMedio === "video" ? (mediaUrl ?? null) : null,
         audioUrl:
-          detail.paso.tipoMedio === "audio" ? detail.paso.archivoUrl : null,
+          selectedStep.tipoMedio === "audio" ? (mediaUrl ?? null) : null,
       }
     : null;
-  const totalSteps = detail?.totalPasos ?? 0;
-  const currentStep = detail?.pasoActual ?? 1;
+  const totalSteps = detail?.pasos.length ?? 0;
   const activityTitle = detail?.titulo ?? "";
   const schedule = detail
-    ? `De ${formatTime(detail.inicioProgramado)} a ${formatTime(detail.finProgramado)}`
+    ? `De ${formatTime(detail.fInicioProgramada)} a ${formatTime(detail.fFinProgramada)}`
     : "";
   const activityHref = realizationId;
   const stepHref = (number: number) =>
     `/estudiante/actividad/${activityHref}/paso/${number}`;
   const previousStepHref = stepHref(stepNumber - 1);
   const nextStepHref = stepHref(stepNumber + 1);
-  const isCurrentStep = stepNumber === currentStep;
   const isLoading =
     isAuthLoading ||
-    (isAuthenticated && detail === undefined);
+    (isAuthenticated && detail === undefined) ||
+    (isAuthenticated && mediaFileId !== undefined && mediaUrl === undefined);
 
   useEffect(() => {
     if (step) setFormat(step.initialFormat);
   }, [stepNumber, step?.initialFormat]);
 
   async function finishActivity() {
-    if (!realizationId || !isCurrentStep || stepNumber !== totalSteps) {
-      setActionError("Completa los pasos en orden antes de terminar.");
+    if (stepNumber !== totalSteps) {
+      setActionError("Completa todos los pasos antes de terminar.");
       return;
     }
 
@@ -284,32 +288,16 @@ export default function StepByStepView({
   }
 
   async function continueActivity() {
-    if (!isCurrentStep) {
-      router.push(stepHref(currentStep));
-      return;
-    }
     if (stepNumber === totalSteps) {
       await finishActivity();
       return;
     }
-    setIsSaving(true);
-    setActionError(null);
-    try {
-      await advanceMutation({
-        realizacionId: realizationId,
-        numeroPaso: stepNumber,
-      });
-      router.push(nextStepHref);
-    } catch (error) {
-      setActionError(getErrorMessage(error));
-    } finally {
-      setIsSaving(false);
-    }
+    router.push(nextStepHref);
   }
 
   if (isLoading) {
     return (
-      <p className="flex h-dvh items-center justify-center text-xl text-[#66716c]" role="status">
+      <p className="flex h-dvh items-center justify-center text-xl text-alumno-texto-suave" role="status">
         Cargando el paso…
       </p>
     );
@@ -317,20 +305,26 @@ export default function StepByStepView({
 
   if (!isAuthenticated) {
     return (
-      <p className="flex h-dvh items-center justify-center text-xl text-[#66716c]" role="alert">
+      <p className="flex h-dvh items-center justify-center text-xl text-alumno-texto-suave" role="alert">
         Inicia sesión con una cuenta de estudiante para ver este paso.
       </p>
     );
   }
 
   if (!step || detail === null) {
+    const unavailableMessage =
+      detail === null
+        ? "Esta actividad no está disponible."
+        : totalSteps === 0
+          ? "Esta actividad todavía no tiene pasos disponibles."
+          : "Este paso no existe o no está disponible.";
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-5 bg-[#fbfaf7] px-6 text-center">
-        <p className="text-xl font-semibold text-[#242a27]" role="alert">
-          Este paso no está disponible o todavía no te corresponde.
+      <div className="flex h-dvh flex-col items-center justify-center gap-5 bg-alumno-fondo px-6 text-center">
+        <p className="text-xl font-semibold text-alumno-texto" role="alert">
+          {unavailableMessage}
         </p>
         <Link
-          className="rounded-xl bg-[#20615b] px-6 py-3 font-bold text-white"
+          className="rounded-xl bg-alumno-primario px-6 py-3 font-bold text-white"
           href="/hoy"
         >
           Volver a hoy
@@ -340,13 +334,13 @@ export default function StepByStepView({
   }
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[#fbfaf7]">
+    <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
       <StudentSidebar />
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3">
           <Link
-            className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl border-2 border-[#e4e0d7] bg-[#fffefb] px-3 text-sm font-bold text-[#242a27] hover:border-[#20615b] focus:outline-none focus:ring-4 focus:ring-[#c8dedb] sm:px-5 sm:text-base"
+            className="inline-flex min-h-12 w-fit items-center gap-2 rounded-xl border-2 border-alumno-borde bg-alumno-superficie px-3 text-sm font-bold text-alumno-texto hover:border-alumno-primario focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:px-5 sm:text-base"
             href="/hoy"
           >
             <span aria-hidden="true" className="text-2xl leading-none">
@@ -356,15 +350,15 @@ export default function StepByStepView({
           </Link>
 
           <div className="text-center">
-            <h1 className="text-lg font-extrabold leading-tight text-[#242a27] sm:text-2xl">
+            <h1 className="text-lg font-extrabold leading-tight text-alumno-texto sm:text-2xl">
               {activityTitle}
             </h1>
-            <p className="text-sm text-[#66716c] sm:text-base">
+            <p className="text-sm text-alumno-texto-suave sm:text-base">
               {schedule}
             </p>
           </div>
 
-          <span className="justify-self-end rounded-xl bg-[#fff1cc] px-3 py-3 text-sm font-extrabold text-[#785500] sm:px-5 sm:text-base">
+          <span className="justify-self-end rounded-xl bg-alumno-acento/20 px-3 py-3 text-sm font-extrabold text-[#785500] sm:px-5 sm:text-base">
             Paso {stepNumber} de {totalSteps}
           </span>
         </header>
@@ -382,7 +376,7 @@ export default function StepByStepView({
             <span
               aria-hidden="true"
               className={`h-2.5 rounded-full ${
-                index < stepNumber ? "bg-[#20615b]" : "bg-[#ded7c9]"
+                index < stepNumber ? "bg-alumno-primario" : "bg-alumno-borde"
               }`}
               key={index}
             />
@@ -405,11 +399,11 @@ export default function StepByStepView({
               />
             )}
             {format === "literal" && (
-              <div className="w-full max-w-[520px] rounded-3xl border-2 border-[#e4e0d7] bg-[#fffefb] p-6 sm:p-8">
-                <p className="text-sm font-bold uppercase tracking-wide text-[#66716c]">
+              <div className="w-full max-w-[520px] rounded-3xl border-2 border-alumno-borde bg-alumno-superficie p-6 sm:p-8">
+                <p className="text-sm font-bold uppercase tracking-wide text-alumno-texto-suave">
                   Instrucción
                 </p>
-                <p className="mt-4 text-2xl font-semibold leading-relaxed text-[#242a27] sm:text-3xl">
+                <p className="mt-4 text-2xl font-semibold leading-relaxed text-alumno-texto sm:text-3xl">
                   {step.title}. {step.description}
                 </p>
               </div>
@@ -417,20 +411,20 @@ export default function StepByStepView({
           </div>
 
           <div className="flex min-h-0 flex-col justify-center">
-            <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-[#242a27] sm:text-4xl lg:text-[42px]">
+            <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-alumno-texto sm:text-4xl lg:text-[42px]">
               {step.title}
             </h2>
             {step.description && (
-              <p className="mt-4 max-w-xl text-lg leading-relaxed text-[#66645f] sm:text-xl">
+              <p className="mt-4 max-w-xl text-lg leading-relaxed text-alumno-texto-suave sm:text-xl">
                 {step.description}
               </p>
             )}
           </div>
         </section>
 
-        <footer className="flex shrink-0 flex-col gap-3 border-t border-[#e4e0d7] pt-3 lg:flex-row lg:items-end lg:justify-between">
+        <footer className="flex shrink-0 flex-col gap-3 border-t border-alumno-borde pt-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="mb-2 text-sm font-semibold text-[#77736c]">
+            <p className="mb-2 text-sm font-semibold text-alumno-texto-apagado">
               Cambiar formato
             </p>
             <div
@@ -443,10 +437,10 @@ export default function StepByStepView({
                 return (
                   <button
                     aria-pressed={isSelected}
-                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-3 text-sm font-bold transition focus:outline-none focus:ring-4 focus:ring-[#c8dedb] sm:min-h-14 sm:px-4 sm:text-base ${
+                    className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 px-3 text-sm font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:min-h-14 sm:px-4 sm:text-base ${
                       isSelected
-                        ? "border-[#f2b640] bg-[#f2b640] text-[#242a27]"
-                        : "border-[#20615b] bg-[#fffefb] text-[#20615b] hover:bg-[#e7f0ee]"
+                        ? "border-alumno-acento bg-alumno-acento text-alumno-texto"
+                        : "border-alumno-primario bg-alumno-superficie text-alumno-primario hover:bg-alumno-superficie-hecha"
                     }`}
                     key={item.id}
                     onClick={() => setFormat(item.id)}
@@ -462,9 +456,9 @@ export default function StepByStepView({
           </div>
 
           <div className="flex shrink-0 justify-end gap-2 sm:gap-3">
-            {stepNumber > 1 && isCurrentStep && (
+            {stepNumber > 1 && (
               <Link
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-[#20615b] bg-[#fffefb] px-4 text-sm font-bold text-[#20615b] hover:bg-[#e7f0ee] focus:outline-none focus:ring-4 focus:ring-[#c8dedb] sm:min-h-14 sm:px-6 sm:text-base"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-alumno-primario bg-alumno-superficie px-4 text-sm font-bold text-alumno-primario hover:bg-alumno-superficie-hecha focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:min-h-14 sm:px-6 sm:text-base"
                 href={previousStepHref}
               >
                 <span aria-hidden="true">‹</span>
@@ -472,10 +466,10 @@ export default function StepByStepView({
               </Link>
             )}
             <button
-              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition focus:outline-none focus:ring-4 focus:ring-[#c8dedb] sm:min-h-14 sm:px-8 sm:text-base ${
+              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition focus:outline-none focus:ring-4 focus:ring-alumno-primario/20 sm:min-h-14 sm:px-8 sm:text-base ${
                 stepNumber === totalSteps
-                  ? "bg-[#f2b640] text-[#242a27] hover:bg-[#e6a923]"
-                  : "bg-[#20615b] text-white hover:bg-[#184d48]"
+                  ? "bg-alumno-acento text-alumno-texto hover:bg-alumno-acento/90"
+                  : "bg-alumno-primario text-white hover:bg-alumno-primario-hover"
               }`}
               disabled={isSaving}
               onClick={continueActivity}
@@ -483,13 +477,11 @@ export default function StepByStepView({
             >
               {isSaving
                 ? "Guardando…"
-                : !isCurrentStep
-                  ? "Ir al paso actual"
-                  : stepNumber === totalSteps
-                    ? "Termino"
-                    : "Siguiente"}
+                : stepNumber === totalSteps
+                  ? "Termino"
+                  : "Siguiente"}
               <span aria-hidden="true">
-                {isCurrentStep && stepNumber === totalSteps ? "✓" : "→"}
+                {stepNumber === totalSteps ? "✓" : "→"}
               </span>
             </button>
           </div>

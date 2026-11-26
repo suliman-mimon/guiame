@@ -66,16 +66,16 @@ export default function StudentSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-[198px] shrink-0 flex-col bg-[#eee8dc] px-3 py-5">
+    <aside className="flex h-full w-[198px] shrink-0 flex-col bg-alumno-lateral px-3 py-5">
       <Link
         aria-label="GuiaMe, ir a Hoy"
         className="mb-7 flex min-h-12 items-center justify-center gap-3 px-2"
         href="/hoy"
       >
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#20615b] text-white">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-alumno-primario text-white">
           <Icon name="calendarCheck" />
         </span>
-        <span className="text-2xl font-bold tracking-tight text-[#20615b]">
+        <span className="text-2xl font-bold tracking-tight text-alumno-primario">
           GuiaMe
         </span>
       </Link>
@@ -94,8 +94,8 @@ export default function StudentSidebar() {
                   aria-current={active ? "page" : undefined}
                   className={`flex min-h-[92px] flex-col items-center justify-center gap-2 rounded-2xl border-l-4 px-2 py-3 text-center text-base font-bold leading-tight transition-colors ${
                     active
-                      ? "border-[#f2b640] bg-[#20615b] text-white"
-                      : "border-transparent text-[#343b38] hover:bg-[#e9e4da]"
+                      ? "border-alumno-acento bg-alumno-primario text-white"
+                      : "border-transparent text-alumno-texto-secundario hover:bg-alumno-superficie-hecha"
                   }`}
                   href={href}
                 >
@@ -110,7 +110,7 @@ export default function StudentSidebar() {
         </ul>
       </nav>
 
-      <div className="mt-auto flex min-h-[72px] items-center justify-center rounded-2xl border-2 border-dashed border-[#b8b2a7] px-3 text-center text-sm text-[#706e68]">
+      <div className="mt-auto flex min-h-[72px] items-center justify-center rounded-2xl border-2 border-dashed border-alumno-borde px-3 text-center text-sm text-alumno-texto-apagado">
         Logo del centro
       </div>
     </aside>

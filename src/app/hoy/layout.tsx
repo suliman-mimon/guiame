@@ -20,7 +20,7 @@ export default async function HoyLayout({
   }
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-[#fbfaf7]">
+    <div className="flex h-dvh w-full overflow-hidden bg-alumno-fondo">
       <StudentSidebar />
       <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">
         {children}
