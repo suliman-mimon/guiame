@@ -12,8 +12,9 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 export const metadata: Metadata = {
-  title: "App",
-  description: "Next.js + Convex starter with auth configured.",
+  title: "GuiaMe",
+  description:
+    "Agenda digital accesible y personalizable para el alumnado del CEE Fundación Purísima Concepción.",
 };
 
 export default function RootLayout({

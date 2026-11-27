@@ -4,19 +4,36 @@ Agenda digital accesible y personalizable para el alumnado del CEE Fundación
 Purísima Concepción (Granada). Proyecto de la asignatura Dirección y Gestión
 de Proyectos, Universidad de Granada, curso 2026-2027.
 
-La documentación completa (Propuesta Técnica, Manual de Coordinación) está en
-`trabajo/segunda-entrega/`.
-
 ## Estado actual
 
-Este repositorio corresponde a la **Iteración 1** del proyecto: base técnica
-y autenticación funcionando (RF6.1, RF6.4), y el modelo de datos completo
-(RI1-RI3). Las funcionalidades del producto (agenda, actividades, estado
-emocional, personalización) se desarrollan en las iteraciones 2 y 3.
+Versión entregada al final del Sprint 2 (27 de noviembre de 2026). En `main`:
+
+- **Acceso**: login único con el diseño de Figma (GM-27) y redirección por
+  rol (GM-06): el alumnado va a `/hoy` y los profesionales a `/panel`.
+- **Panel del profesional**: «Mis estudiantes» con el progreso del día, qué
+  hace cada uno y los retrasos, con filtros (GM-15, GM-21, GM-26); la agenda
+  de cada estudiante en tiempo real (GM-16, GM-22); el asistente «Nueva
+  actividad» con pasos, pictogramas de ARASAAC y aviso de solapamientos
+  (GM-07, GM-23 a GM-25, GM-47); y los ajustes de paleta, letra y formatos
+  de cada alumno (GM-34 a GM-36).
+- **App del alumno**: «Hoy» con Empiezo y Termino, la vista paso a paso,
+  «¡Muy bien!» y «Mi semana», con la paleta y la letra que elige el tutor
+  (GM-28 a GM-32, GM-35).
+- **Datos de demostración** listos con dos comandos (ver más abajo).
+
+Queda para la iteración 3: el estado de ánimo del alumno (PR #30), sus
+tareas propias (PR #24 y #25), los permisos del alumno en Ajustes (PR #31,
+pendiente de revisión), editar una actividad desde el panel y subir vídeo o
+audio a los pasos (el servidor ya los admite: GM-11 y GM-12).
+
+La Propuesta Técnica y el Manual de Coordinación se mantienen en la entrega
+académica del equipo. El
+[anexo de correcciones](docs/correcciones-propuesta-tecnica-sprint-2.md)
+contiene los textos propuestos para la siguiente versión de la Propuesta Técnica.
 
 ## Arquitectura
 
-- **Next.js** (App Router) para la aplicación web, con una única base de
+- **Next.js 16 y React 19** (App Router) para la aplicación web, con una única base de
   código para la vista del estudiante y el panel de tutores/administración.
 - **Convex** como servidor y base de datos: el esquema y las funciones viven
   en `convex/`, se escriben en TypeScript y se despliegan con el mismo
@@ -26,6 +43,7 @@ emocional, personalización) se desarrollan en las iteraciones 2 y 3.
   como un nombre de usuario simple (estudiantes, según el glosario de la
   Propuesta Técnica) — no se valida formato, solo se compara como texto.
 - **Tailwind CSS v4** para los estilos.
+- **Vercel** para la aplicación web y las previews de revisión.
 
 Detalle de las tecnologías y su justificación: Propuesta Técnica, apartado
 5.c.
@@ -49,23 +67,39 @@ Propuesta Técnica (apartado 4.f):
 | `estadosEmocionales` | Registro emocional diario por estudiante |
 | `configuracionesVisuales` | Paleta, tamaño de letra y apoyo visual por estudiante |
 
-Las funciones de negocio (crear/asignar actividades, comprobar
-solapamientos, etc. — RF2.x) son alcance de la iteración 2 y todavía no
-están implementadas.
+La gestión administrativa de clases (RF7.1–RF7.3) requiere pantallas y
+operaciones de creación, matrícula y asignación de tutores. Las tablas
+anteriores son la base de datos para esas funciones.
+
+### Directorios
+
+| Ruta | Contenido |
+| --- | --- |
+| `src/app/` | Rutas, layouts y estilos globales de Next.js |
+| `src/components/` | Componentes compartidos y proveedor de Convex |
+| `convex/` | Esquema, autenticación y funciones de servidor |
+| `convex/_generated/` | Tipos y referencias de API generados por Convex |
+| `.github/workflows/` | Automatización del repositorio |
 
 ## Instalación y configuración
 
-Requiere Node.js y una cuenta de Convex con acceso al team `guiame-team`
-(pedirle acceso a quien administre el proyecto).
+Usa Node.js 24 y npm. Para configurar un deployment de desarrollo del equipo
+necesitas acceso al team `guiame-team`.
 
 ```sh
-npm install
+npm ci
 npx convex dev --configure existing --team guiame-team --project guiame
 ```
 
 El segundo comando enlaza tu CLI al proyecto `guiame` del team
 `guiame-team` y genera `.env.local` (no se sube al repositorio) con las
-variables de conexión a tu propio deployment de desarrollo.
+variables de conexión a tu propio deployment de desarrollo. Comprueba
+`CONVEX_DEPLOYMENT` para la CLI y `NEXT_PUBLIC_CONVEX_URL` para el cliente
+web. Convex proporciona `CONVEX_SITE_URL`, que se usa como emisor de Convex
+Auth. Configura Convex Auth en el deployment de desarrollo. Debe tener `SITE_URL`
+con el origen de la web y el par `JWT_PRIVATE_KEY` / `JWKS`. La clave privada
+se guarda únicamente en Convex. Para un entorno local, usa
+`http://localhost:3000` como `SITE_URL`. Conserva `.env.local` fuera de Git.
 
 ## Modo de ejecución
 
@@ -79,7 +113,9 @@ Arranca en paralelo `convex dev` (sincroniza el esquema y las funciones) y
 Otros comandos útiles:
 
 ```sh
+npm run typecheck   # tipos de Convex y Next.js
 npm run lint        # typecheck + eslint
+git diff --check    # espacios sobrantes y marcadores de conflicto
 npm run build       # build de producción de Next.js
 npx convex dashboard # abre el dashboard de Convex
 ```
@@ -94,12 +130,9 @@ npx convex run accounts:createTutor \
   '{"email":"usuario_o_email","password":"...","nombre":"...","apellidos":"..."}'
 ```
 
-Añadir `--prod` apunta a producción en vez de a tu deployment de desarrollo
-personal.
+### Datos de demostración
 
-### Datos de demo
-
-Dos pasos, en este orden:
+En un deployment de desarrollo vacío, dos pasos, en este orden:
 
 ```sh
 npx convex run seed:seedDemoData   # una sola vez: cuentas, clase y emociones
@@ -141,7 +174,10 @@ tocar la estructura del seed.
   automáticamente el alias **https://guiame-dgp.vercel.app** al deploy que
   acaba de quedar listo.
 
-El Manual de Coordinación (apartado de Control de versiones) fija como
-política integrar los cambios mediante Pull Request revisado en vez de
-push directo a `main`; `main` ya tiene una regla de protección de rama en
-GitHub que lo exige (1 aprobación obligatoria).
+## Ramas y revisión
+
+Crea una rama por tarea con su identificador, por ejemplo `GM-15-listar-estudiantes`.
+El Pull Request explica los cambios, las pruebas y sus dependencias. Si depende
+de un PR abierto, usa la rama de ese PR como base hasta que se integre. Solicita
+revisión a Pablo y, para los cambios de backend, a Suliman. La integración en
+`main` se realiza desde GitHub después de la revisión.

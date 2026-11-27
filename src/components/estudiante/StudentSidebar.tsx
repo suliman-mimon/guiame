@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
 
@@ -12,7 +13,7 @@ const navigation = [
   { label: "Mis colores", icon: "palette" },
 ] as const;
 
-type IconName = (typeof navigation)[number]["icon"] | "calendarCheck";
+type IconName = (typeof navigation)[number]["icon"] | "calendarCheck" | "salir";
 
 function Icon({ name }: { name: IconName }) {
   return (
@@ -50,6 +51,12 @@ function Icon({ name }: { name: IconName }) {
           <path d="M7.5 11h.01M10 7.5h.01M14 7.5h.01M17 10h.01" />
         </>
       )}
+      {name === "salir" && (
+        <>
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="m16 17 5-5-5-5M21 12H9" />
+        </>
+      )}
       {name === "calendarCheck" && (
         <>
           <rect height="17" rx="2.5" width="18" x="3" y="5" />
@@ -62,7 +69,14 @@ function Icon({ name }: { name: IconName }) {
 
 export default function StudentSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { signOut } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
+
+  async function cerrarSesion() {
+    await signOut();
+    router.push("/login");
+  }
   const config = useQuery(
     api.configuracionesVisuales.miConfiguracion,
     isAuthenticated ? {} : "skip",
@@ -136,8 +150,18 @@ export default function StudentSidebar() {
         </ul>
       </nav>
 
-      <div className="mt-auto flex min-h-[72px] items-center justify-center rounded-2xl border-2 border-dashed border-alumno-borde px-3 text-center text-sm text-alumno-texto-apagado">
-        Logo del centro
+      <div className="mt-auto flex flex-col gap-3">
+        <p className="px-2 text-center text-sm leading-snug text-alumno-texto-secundario">
+          CEE Fundación Purísima Concepción
+        </p>
+        <button
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-alumno-borde-campo px-2 text-base font-bold text-alumno-texto-secundario transition-colors hover:bg-alumno-superficie-hecha focus:outline-none focus:ring-4 focus:ring-alumno-primario/20"
+          onClick={cerrarSesion}
+          type="button"
+        >
+          <Icon name="salir" />
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   );
